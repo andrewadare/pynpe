@@ -11,36 +11,14 @@ import sys
 
 alpha = 1.001
 nwalkers = 200
-nburnin = 250 #500
-nsteps = 750 #1000
+nburnin = 250
+nsteps = 750
 
 rcParams['font.size'] = 14
 rcParams['font.family'] = ['sans-serif']
 rcParams['font.sans-serif'] = ['Arial']
 rcParams['mathtext.default'] = 'sf'
 rcParams['figure.max_open_warning'] = 50
-
-
-# # This works...too well.
-# def lnprior(x, xref, alpha):
-#   if x.any < 0.:
-#     return -np.inf
-#   if alpha == 0.:
-#     return 0.
-#   diff = x - xref
-#   return -np.dot(diff,diff)/alpha/alpha
-
-# # Very low mean acc. fraction during burn-in. runtime warning:
-# #  invalid value encountered in subtract
-# #  invalid value encountered in greater
-# def lnprior(x, xref, alpha):
-#   if alpha == 0.:
-#     return 0.
-#   diff = np.abs(x - xref)/xref
-#   if diff.any > alpha: 
-#     return -np.inf
-#   return 0.0
-
 
 # def lnpoiss(n,mu):
 #   '''
@@ -61,25 +39,6 @@ def lngauss(x, mu, prec):
   '''
   diff = x-mu
   return -np.dot(diff,np.dot(prec,diff))/2.
-
-# def lnlike(x, A, b, icov):
-#   diff = np.dot(A,x) - b
-#   return -np.dot(diff,np.dot(icov,diff))/2.
-
-# # Original
-# def lnprob(x, A, b, icov, xini, alpha):
-#   lp = lnprior(x, xini, alpha)
-#   if not np.isfinite(lp):
-#     return -np.inf
-#   return lp + lnlike(x, A, b, icov)
-
-# x = parameter vector like hpt
-# mu_prior = hpt
-# mu_data = A*x
-# icov_prior = np.diagflat((alpha/mu)**2)
-# icov_data  = np.diagflat(1./ept_err**2)
-# def logmvnprob(x, data, icov_data, mu_prior, icov_prior):
-#   return lngauss(x, mu_prior, icov_prior) + lngauss(x, mu_data, icov_data)
 
 dtype = 'MC'
 modelFile = TFile('rootfiles/bfrac0.030-dcares0um.root')
@@ -138,7 +97,7 @@ ax.set_xlabel(r'h $p_T$ bin index')
 ax.set_ylabel(r'$e^{\pm}$ $p_T$ bin index')
 ax.set_ylim([0, aept.shape[1]+1])
 fig.colorbar(p)
-fig.savefig('aept.pdf')
+fig.savefig('pdfs/aept.pdf')
 
 # Draw ept
 fig, ax = plt.subplots()
@@ -147,7 +106,7 @@ ax.set_xlabel(r'$e^{\pm}$ $p_T$ [GeV/c]')
 ax.errorbar(eptx, ept, yerr=ept_err, lw=2, ls='*', marker='o', color='k')
 ax.plot(eptx, np.dot(aept,hpt), lw=2, ls='*', marker='o', color='r')
 
-fig.savefig('ept.pdf')
+fig.savefig('pdfs/ept.pdf')
 # sys.exit()
 
 # Define the distribution to sample from.
@@ -185,7 +144,7 @@ for i in range(ndim): # there are ndim plots, but only show first three.
   plt.figure()
   plt.hist(sampler.flatchain[:,i], 100, color="k", histtype="step")
   plt.title("Dimension {0:d}".format(i))
-  plt.savefig('bin{0:02d}.pdf'.format(i))
+  plt.savefig('pdfs/bin{0:02d}.pdf'.format(i))
 
 acc_frac = np.mean(sampler.acceptance_fraction)
 print("Mean acceptance fraction: {0:.3f}".format(acc_frac))
@@ -212,22 +171,12 @@ for i in range(nwalkers):
 # truth
 ax.plot(hptx, hpt, lw=2, ls='*', marker='o', color='black')
 # result
-# ax.bar(hptx, pq[:,0], yerr=[pq[:,2], pq[:,1]],
-#             align='center',color='red', edgecolor='orange', linewidth=2,
-#             error_kw=dict(ecolor='orange', lw=2, capsize=5, capthick=2))
 ax.errorbar(hptx, pq[:,0], yerr=[pq[:,2], pq[:,1]],
             ls='*', fmt='o', color='crimson', ecolor='crimson', capthick=2)
-fig.savefig('hpt.pdf')
+fig.savefig('pdfs/hpt.pdf')
 
 # Make a triangle plot.
 # figc = triangle.corner(samples[:, 0:ndim/2])
 # figc.savefig("ctri.png")
 # figb = triangle.corner(samples[:, ndim/2:ndim])
 # figb.savefig("btri.png")
-
-
-# Keep for later reference
-# fig = triangle.corner(samples, labels=["$m$", "$b$", "$\ln\,f$"],
-#                       truths=[m_true, b_true, np.log(f_true)])
-
-
