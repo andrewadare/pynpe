@@ -1,44 +1,32 @@
+'''
+samplehpt.py
+Sample from joint probability to find heavy-flavor hadron yields vs pt
+'''
 
 from ROOT import TFile
+from h2np import h2a, binedges, binctrs
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import rcParams
+from scipy.stats import norm
 from matplotlib.colors import LogNorm
-from h2np import h2a, binedges, binctrs
 import emcee
 import triangle
 import sys
+import lnpmodels
 
-alpha = 1.001
+alpha = 1.1
 nwalkers = 200
 nburnin = 250
 nsteps = 750
 
-rcParams['font.size'] = 14
-rcParams['font.family'] = ['sans-serif']
-rcParams['font.sans-serif'] = ['Arial']
-rcParams['mathtext.default'] = 'sf'
-rcParams['figure.max_open_warning'] = 50
+def draa(x):
+  return 1.3*np.sqrt(2*np.pi*1.1*1.1)*norm.pdf(x, loc=1.5, scale=1.1) + \
+  0.2/(1 + np.exp(-x+3))
 
-# def lnpoiss(n,mu):
-#   '''
-#   Multivariate log likelihood for Poisson(n | mu)
-#   '''
-#   return 
-  
-# # An uninformative prior.
-# def lnprior(x, xref, alpha):
-#   if x.any < 0.:
-#     return -np.inf
-#   return 0.
-
-def lngauss(x, mu, prec):
-  '''
-  Log likelihood for multivariate Gaussian N(x | mu, prec)
-  where prec is the inverse covariance matrix.
-  '''
-  diff = x-mu
-  return -np.dot(diff,np.dot(prec,diff))/2.
+def braa(x):
+  return 0.6*np.exp(-x/3) + \
+  1.1*np.sqrt(2*np.pi*1.5*1.5)*norm.pdf(x, loc=3.4, scale=1.5) + \
+  0.3/(1 + np.exp(-x+7))
 
 dtype = 'MC'
 modelFile = TFile('rootfiles/bfrac0.030-dcares0um.root')
@@ -55,7 +43,6 @@ dcaMatrix = [] # TH2D
 # Electron pt spectra
 hEpt = eptFile.Get('hEptMC')
 hEpt.SetName('hEpt')
-eptIntegral = hEpt.Integral()
 
 # Measured (or maybe simulated) DCA and combined background
 measdca = [None]*6 # TH1D
@@ -70,59 +57,36 @@ for i in range(6):
 aept    = h2a(hAept)
 hpt     = aept.sum(axis=0) #h2a(hptGen)
 ept     = aept.sum(axis=1) #h2a(hEpt)
-ept_err = np.sqrt(ept)     #h2a(hEpt, 'e')
 hptx    = binctrs(hptGen,'x')
 eptx    = binctrs(hEpt,'x')
 ndim    = aept.shape[1]
+raa     = np.concatenate((draa(hptx[:10]), braa(hptx[:10])))
+hptmod  = raa*hpt
 
 psigma  = np.zeros(hpt.size)
 if alpha > 0: psigma = hpt/alpha
 
 aept /= aept.sum(axis=0)
-
-print("ndim: {}, nwalkers: {}".format(ndim, nwalkers))
+eptmod  = np.dot(aept,hptmod)
+ept_err = np.sqrt(eptmod)     #h2a(hEpt, 'e')
 
 # Ensemble of starting points for the walkers. 
-# p0 is an array (length nwalkers) of vectors (each length ndim).
-# p0 = np.random.rand(ndim * nwalkers).reshape((nwalkers, ndim))
-# p0 = np.random.randn(nwalkers, ndim) + hpt
+print("ndim: {}, nwalkers: {}".format(ndim, nwalkers))
 p0 = hpt*(1. + 0.5*np.random.randn(nwalkers, ndim))
-# print p0.shape # (250, 20)
-
-# Draw matrix
-fig, ax = plt.subplots()
-p = ax.pcolormesh(aept, norm=LogNorm(vmin=aept.min()+1e-8, vmax=aept.max()), 
-                  cmap='Spectral_r') #cmap='RdYlBu_r') #cmap='Blues')
-ax.set_xlabel(r'h $p_T$ bin index')
-ax.set_ylabel(r'$e^{\pm}$ $p_T$ bin index')
-ax.set_ylim([0, aept.shape[1]+1])
-fig.colorbar(p)
-fig.savefig('pdfs/aept.pdf')
-
-# Draw ept
-fig, ax = plt.subplots()
-ax.set_yscale('log')
-ax.set_xlabel(r'$e^{\pm}$ $p_T$ [GeV/c]')
-ax.errorbar(eptx, ept, yerr=ept_err, lw=2, ls='*', marker='o', color='k')
-ax.plot(eptx, np.dot(aept,hpt), lw=2, ls='*', marker='o', color='r')
-
-fig.savefig('pdfs/ept.pdf')
-# sys.exit()
-
-# Define the distribution to sample from.
-# Gaussian posterior:
-def lnprob(x, A, b, icov_data, x_prior, icov_prior):
-  return lngauss(x,x_prior,icov_prior) + lngauss(b, np.dot(A,x), icov_data)
-icov_data  = np.diagflat(1./ept_err**2)
-icov_prior = np.diagflat((alpha/hpt)**2)
 
 # Construct an ensemble sampler object from emcee
-sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, 
-                                args=[aept, ept, icov_data, hpt, icov_prior])
 
-# Burn-in phase of 100 steps (100 chosen very arbitrarily).
-# The position of the walker is saved to pos.
-# reset() clears the bookkeeping parameters to prepare for a fresh start.
+# Gaussian prior, Poisson likelihood
+icov_data  = np.diagflat(1./ept_err**2)
+icov_prior = np.diagflat((alpha/hpt)**2)
+sampler = emcee.EnsembleSampler(nwalkers, ndim, lnpmodels.gaussian_poisson, 
+                                args=[aept, eptmod, icov_data, hpt, icov_prior])
+
+# # Gamma prior, Poisson likelihood
+# sampler = emcee.EnsembleSampler(nwalkers, ndim, gamma_poisson, 
+#                                 args=[aept, ept, icov_data, 
+#                                 hpt, hpt/alpha, np.ones_like(hpt)/alpha])
+
 print("Burning in for {} steps...".format(nburnin))
 pos, prob, state = sampler.run_mcmc(p0, nburnin)
 sampler.reset()
@@ -130,21 +94,9 @@ print("prob: len({})".format(len(prob)))
 print("state: {} len({}) {} {} {}".format(state[0], 
       len(state[1]), state[2], state[3], state[4]))
 
-# Full run with 1000 steps. 
-# Output object is sample.chain array with shape (nwalkers, nsteps, ndim)
-# or, better, sample.flatchain with shape (nwalkers x nsteps, ndim)
 print("Running sampler for {} steps...".format(nsteps))
 sampler.run_mcmc(pos, nsteps)
 print("Finished sampling.")
-
-# Draw the results
-# sample.chain has shape (nwalkers, nsteps, ndim)
-print("Histogramming results for plotting...")
-for i in range(ndim): # there are ndim plots, but only show first three.
-  plt.figure()
-  plt.hist(sampler.flatchain[:,i], 100, color="k", histtype="step")
-  plt.title("Dimension {0:d}".format(i))
-  plt.savefig('pdfs/bin{0:02d}.pdf'.format(i))
 
 acc_frac = np.mean(sampler.acceptance_fraction)
 print("Mean acceptance fraction: {0:.3f}".format(acc_frac))
@@ -158,6 +110,14 @@ pq = map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),
          zip(*np.percentile(samples, [16, 50, 84], axis=0)))
 pq = np.array(pq)
 
+
+
+
+print("Drawing results...")
+# -----------------------------------------------------------------------------
+# Plotting only after this point
+# -----------------------------------------------------------------------------
+
 # Draw prior, walkers, initial guess, and result.
 fig, ax = plt.subplots()
 ax.set_yscale('log')
@@ -168,12 +128,47 @@ ax.fill_between(hptx, np.maximum(hpt-psigma,1.0*np.ones_like(hpt)), hpt+psigma,
 # walkers
 for i in range(nwalkers): 
   ax.plot(hptx, p0[i,:], ls='*', marker='s', ms=14, color='deepskyblue', alpha=0.01)
-# truth
-ax.plot(hptx, hpt, lw=2, ls='*', marker='o', color='black')
+# gen
+ax.plot(hptx, hpt, lw=2, ls='*', marker='o', color='white')
+# mod
+ax.plot(hptx, hptmod, lw=2, ls='*', marker='s', color='black')
 # result
 ax.errorbar(hptx, pq[:,0], yerr=[pq[:,2], pq[:,1]],
             ls='*', fmt='o', color='crimson', ecolor='crimson', capthick=2)
 fig.savefig('pdfs/hpt.pdf')
+
+# Draw matrix
+fig, ax = plt.subplots()
+p = ax.pcolormesh(aept, norm=LogNorm(vmin=aept.min()+1e-8, vmax=aept.max()), 
+                  cmap='Spectral_r') #cmap='RdYlBu_r') #cmap='Blues')
+ax.set_xlabel(r'h $p_T$ bin index')
+ax.set_ylabel(r'$e^{\pm}$ $p_T$ bin index')
+ax.set_ylim([0, aept.shape[1]+1])
+fig.colorbar(p)
+fig.savefig('pdfs/aept.pdf')
+
+# Draw ept
+eptrefold = np.dot(aept,pq[:,0])
+eptref_hi = np.dot(aept,pq[:,1])
+eptref_lo = np.dot(aept,pq[:,2])
+
+fig, ax = plt.subplots()
+ax.set_yscale('log')
+ax.set_xlabel(r'$e^{\pm}$ $p_T$ [GeV/c]')
+ax.errorbar(eptx, ept, yerr=ept_err, lw=2, ls='*', marker='o', color='white')
+ax.errorbar(eptx, eptrefold, yerr= [eptref_lo, eptref_hi],
+            lw=2, ls='*', marker='s', ms=10, color='r')
+ax.errorbar(eptx, eptmod, yerr=ept_err, lw=2, ls='*', marker='o', color='k')
+fig.savefig('pdfs/ept.pdf')
+
+# Draw posterior marginal distributions
+# sample.chain has shape (nwalkers, nsteps, ndim)
+print("Histogramming results for plotting...")
+for i in range(ndim): # there are ndim plots, but only show first three.
+  plt.figure()
+  plt.hist(sampler.flatchain[:,i], 100, color="k", histtype="step")
+  plt.title("Dimension {0:d}".format(i))
+  plt.savefig('pdfs/bin{0:02d}.pdf'.format(i))
 
 # Make a triangle plot.
 # figc = triangle.corner(samples[:, 0:ndim/2])
