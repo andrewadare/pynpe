@@ -14,10 +14,10 @@ import triangle
 import sys
 import lnpmodels
 
-alpha = 1.1
-nwalkers = 200
-nburnin = 250
-nsteps = 750
+alpha = 10
+nwalkers = 500
+nburnin = 500
+nsteps = 1000
 
 def draa(x):
   return 1.3*np.sqrt(2*np.pi*1.1*1.1)*norm.pdf(x, loc=1.5, scale=1.1) + \
@@ -62,9 +62,10 @@ eptx    = binctrs(hEpt,'x')
 ndim    = aept.shape[1]
 raa     = np.concatenate((draa(hptx[:10]), braa(hptx[:10])))
 hptmod  = raa*hpt
+hptbins = binedges(hptGen,'x')
 
-psigma  = np.zeros(hpt.size)
-if alpha > 0: psigma = hpt/alpha
+# psigma  = np.zeros(hpt.size)
+# if alpha > 0: psigma = hpt/alpha
 
 aept /= aept.sum(axis=0)
 eptmod  = np.dot(aept,hptmod)
@@ -72,20 +73,27 @@ ept_err = np.sqrt(eptmod)     #h2a(hEpt, 'e')
 
 # Ensemble of starting points for the walkers. 
 print("ndim: {}, nwalkers: {}".format(ndim, nwalkers))
-p0 = hpt*(1. + 0.5*np.random.randn(nwalkers, ndim))
+p0 = hpt*(1. + 0.1*np.random.randn(nwalkers, ndim))
 
 # Construct an ensemble sampler object from emcee
 
 # Gaussian prior, Poisson likelihood
 icov_data  = np.diagflat(1./ept_err**2)
 icov_prior = np.diagflat((alpha/hpt)**2)
-sampler = emcee.EnsembleSampler(nwalkers, ndim, lnpmodels.gaussian_poisson, 
-                                args=[aept, eptmod, icov_data, hpt, icov_prior])
+# sampler = emcee.EnsembleSampler(nwalkers, ndim, lnpmodels.gaussian_poisson, 
+#                                 args=[aept, eptmod, icov_data, hpt, icov_prior])
 
 # # Gamma prior, Poisson likelihood
 # sampler = emcee.EnsembleSampler(nwalkers, ndim, gamma_poisson, 
 #                                 args=[aept, ept, icov_data, 
 #                                 hpt, hpt/alpha, np.ones_like(hpt)/alpha])
+
+L = lnpmodels.fd2(ndim)
+ymin = 0.01*hpt
+ymax = 2*hpt
+sampler = emcee.EnsembleSampler(nwalkers, ndim, lnpmodels.l2_poisson, 
+                                args=[aept, eptmod, icov_data, 
+                                hpt, alpha, ymin, ymax, L])
 
 print("Burning in for {} steps...".format(nburnin))
 pos, prob, state = sampler.run_mcmc(p0, nburnin)
@@ -122,9 +130,8 @@ print("Drawing results...")
 fig, ax = plt.subplots()
 ax.set_yscale('log')
 ax.set_xlabel(r'bin index')
-# prior
-ax.fill_between(hptx, np.maximum(hpt-psigma,1.0*np.ones_like(hpt)), hpt+psigma, 
-                color='slategray', alpha=0.1)
+# ymin and ymax (part of prior)
+ax.fill_between(hptx, ymin, ymax, color='slategray', alpha=0.1)
 # walkers
 for i in range(nwalkers): 
   ax.plot(hptx, p0[i,:], ls='*', marker='s', ms=14, color='deepskyblue', alpha=0.01)
@@ -164,11 +171,26 @@ fig.savefig('pdfs/ept.pdf')
 # Draw posterior marginal distributions
 # sample.chain has shape (nwalkers, nsteps, ndim)
 print("Histogramming results for plotting...")
-for i in range(ndim): # there are ndim plots, but only show first three.
-  plt.figure()
-  plt.hist(sampler.flatchain[:,i], 100, color="k", histtype="step")
-  plt.title("Dimension {0:d}".format(i))
-  plt.savefig('pdfs/bin{0:02d}.pdf'.format(i))
+nr,nc = 4,5
+fig, axes = plt.subplots(nr,nc)
+for row in range(nr):
+  for col in range(nc):
+    i = nc*row + col
+    a = axes[row,col]
+    fc = 'yellow' if i < ndim/2 else 'lime'
+    a.hist(sampler.flatchain[:,i], 100, 
+           color='k',facecolor=fc, histtype='stepfilled')
+    a.tick_params(axis='x', top='off', labelsize=4)
+    a.tick_params(axis='y', left='off', right='off', labelsize=0)
+    a.xaxis.get_offset_text().set_size(4)
+    a.xaxis.get_major_formatter().set_powerlimits((0, 1))
+    s = r'{0:.0f}-{1:.0f} GeV/c'.format(hptbins[i%10], hptbins[i%10+1])
+    a.text(0.6, 0.9, s, fontsize=5, transform=a.transAxes)
+    if i < ndim/2:
+      a.text(0.05, 0.9, r'$h_{charm}$', fontsize=5, transform=a.transAxes)
+    else:
+      a.text(0.05, 0.9, r'$h_{beauty}$', fontsize=5, transform=a.transAxes)
+fig.savefig('pdfs/posterior.pdf', bbox_inches='tight')
 
 # Make a triangle plot.
 # figc = triangle.corner(samples[:, 0:ndim/2])
