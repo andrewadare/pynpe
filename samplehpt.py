@@ -64,9 +64,6 @@ raa     = np.concatenate((draa(hptx[:10]), braa(hptx[:10])))
 hptmod  = raa*hpt
 hptbins = binedges(hptGen,'x')
 
-# psigma  = np.zeros(hpt.size)
-# if alpha > 0: psigma = hpt/alpha
-
 aept /= aept.sum(axis=0)
 eptmod  = np.dot(aept,hptmod)
 ept_err = np.sqrt(eptmod)     #h2a(hEpt, 'e')
@@ -98,7 +95,7 @@ sampler = emcee.EnsembleSampler(nwalkers, ndim, lnpmodels.l2_poisson,
 print("Burning in for {} steps...".format(nburnin))
 pos, prob, state = sampler.run_mcmc(p0, nburnin)
 sampler.reset()
-print("prob: len({})".format(len(prob)))
+
 print("state: {} len({}) {} {} {}".format(state[0], 
       len(state[1]), state[2], state[3], state[4]))
 
@@ -127,21 +124,26 @@ print("Drawing results...")
 # -----------------------------------------------------------------------------
 
 # Draw prior, walkers, initial guess, and result.
-fig, ax = plt.subplots()
-ax.set_yscale('log')
-ax.set_xlabel(r'bin index')
-# ymin and ymax (part of prior)
-ax.fill_between(hptx, ymin, ymax, color='slategray', alpha=0.1)
-# walkers
-for i in range(nwalkers): 
-  ax.plot(hptx, p0[i,:], ls='*', marker='s', ms=14, color='deepskyblue', alpha=0.01)
-# gen
-ax.plot(hptx, hpt, lw=2, ls='*', marker='o', color='white')
-# mod
-ax.plot(hptx, hptmod, lw=2, ls='*', marker='s', color='black')
-# result
-ax.errorbar(hptx, pq[:,0], yerr=[pq[:,2], pq[:,1]],
+fig, axes = plt.subplots(1,2)
+ptx = hptx[:ndim/2]
+for ax in axes:
+  cb = 'charm' if ax == axes[0] else 'beauty'
+  r  = range(ndim/2) if ax == axes[0] else range(ndim/2,ndim)
+  ax.set_yscale('log')
+  ax.set_xlabel(r'{} hadron $p_T$ [GeV/c]'.format(cb))
+  # ymin and ymax (part of prior)
+  ax.fill_between(ptx, ymin[r], ymax[r], color='slategray', alpha=0.1)
+  # walkers
+  for i in range(nwalkers): 
+    ax.plot(ptx, p0[i,r], ls='*', marker='s', ms=14, color='deepskyblue', alpha=0.01)
+  # gen
+  ax.plot(ptx, hpt[r], lw=2, ls='*', marker='o', color='white')
+  # mod
+  ax.plot(ptx, hptmod[r], lw=2, ls='*', marker='s', color='black')
+  # result
+  ax.errorbar(ptx, pq[r,0], yerr=[pq[r,2], pq[r,1]],
             ls='*', fmt='o', color='crimson', ecolor='crimson', capthick=2)
+
 fig.savefig('pdfs/hpt.pdf')
 
 # Draw matrix
