@@ -86,7 +86,7 @@ def gaussian_gaussian(x, A, b, icov_data, x_prior, icov_prior):
   '''
   return lngauss(x,x_prior,icov_prior) + lngauss(b, np.dot(A,x), icov_data)
 
-def l2_poisson(x, A, b, icov_data, x_prior, alpha, xmin, xmax, L=None):
+def l2_poisson(x, A, b, x_prior, alpha, xmin, xmax, L=None):
   '''
   2-norm of (L*) x/x_prior; Poisson likelihood
   Useful options for L:
