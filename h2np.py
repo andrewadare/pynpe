@@ -7,7 +7,7 @@ def h2a(h, opt=''):
   Returns a numpy array from a ROOT histogram. If opt is 'e', return errors.
   '''
   if not isinstance(h, TH1):
-    print("Error: Object is not a valid ROOT histogram")
+    print("Error from h2np.py h2a(): Object is not a valid ROOT histogram.")
     return
 
   dims = [h.GetNbinsX(), h.GetNbinsY(), h.GetNbinsZ()]
