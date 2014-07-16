@@ -46,9 +46,12 @@ def fd2(ndim, disc=None):
   '''
   d = np.ones(ndim)
   a = np.diag(d[:-1], k=-1) + np.diag(-2*d) + np.diag(d[:-1], k=1)
-  a[0,0] = a[-1,-1] = -1
+  a[0,0] = a[-1,-1] = -1 # For homogeneous Neumann BCs: 1st deriv = 0
+  a *= ndim/2
+
   if disc is None:
     return a
+
   q1, q2 = np.zeros((ndim,1)), np.zeros((ndim,1))
   q1[0:disc:] = 1.
   q2[disc::] = 1.
@@ -99,5 +102,35 @@ def l2_poisson(x, A, b, x_prior, alpha, xmin, xmax, L=None):
   xr = x/x_prior
   if L is not None:
     xr = np.dot(L,xr)
+
+  xr = xr[1:-1] # Truncate to exclude boundary points
   return -alpha*alpha*np.dot(xr,xr) + lnpoiss(b, np.dot(A,x))
 
+if __name__=='__main__':
+  import matplotlib.pyplot as plt
+  ndim = 50
+  L = fd2(ndim)
+
+  # Draw matrix from fd2() function
+  fig, ax = plt.subplots()
+  p = ax.pcolormesh(L, cmap='Greys_r')
+  fig.colorbar(p)
+  fig.savefig('pdfs/fd2.pdf')
+  
+  # Plot differentiation example showing y'' where y = x^3
+  # The result is linear and proportional to y'' = 6*x except at the edges.
+  x  = np.linspace(-5,5.,ndim)
+  y  = x**3
+  ypp = np.dot(L,y)
+
+  dx = x[1] - x[0]
+  print 'y[0]=', y[0], 'ypp[0]=', ypp[0], '6x[0]=', 6*x[0], 'dx=', dx
+  # ypp[0]  += y[0]/dx/dx
+  # ypp[-1] += y[-1]/dx/dx
+
+  fig, ax = plt.subplots()
+  ax.plot(x,y, label=r'$y = x^3$')
+  ax.plot(x[1:-1],ypp[1:-1], label=r'$Ly \approx d^2y/dx^2$')
+  ax.plot(x,6*x, label=r'$6x$')
+  ax.legend()
+  fig.savefig('pdfs/deriv.pdf')
