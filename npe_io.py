@@ -9,7 +9,7 @@ from h2np import h2a, binedges, binctrs
 def checkobjs(objs, source):
   for (i,obj) in enumerate(objs):
     if obj==None:
-      print("Error: TObject {} not retrieved from {}.".format(i, source))
+      print("Error: Object {} not retrieved from {}.".format(i, source))
       print("Exit")
       sys.exit()
 
@@ -23,8 +23,8 @@ def getmodelhists(dcares=0.007, bfrac=0.03, wt=''):
     h = f.Get('hdca{}'.format(i))
     dcaHists[i] = h 
     print dcaHists[i].GetName(), dcaHists[i].GetEntries()
-  # checkobjs([item for sublist in [eptHist,dcaHists] for item in sublist],
-  #           f.GetName())
+  checkobjs([item for sublist in [eptHist,dcaHists] for item in sublist],
+            f.GetName())
   return eptHist, dcaHists
 
 def getmodel(dcares=0.007, bfrac=0.03, wt=''):
@@ -40,11 +40,14 @@ def getmodel(dcares=0.007, bfrac=0.03, wt=''):
   eptMat = h2a(eptHist)
   dcaMat = [h2a(h) for h in dcaHists]
 
-  eptx = binctrs(eptHist,'x')
   hptx = binctrs(eptHist,'y')
+  eptx = binctrs(eptHist,'x')
   dcax = binctrs(dcaHists[0],'x')
 
-  return eptMat, dcaMat, hptx, eptx, dcax
+  hptbins = binedges(eptHist,'y')
+  eptbins = binedges(eptHist,'x')
+
+  return eptMat, dcaMat, hptx, eptx, dcax, hptbins, eptbins
 
 def getdatahists(dtype='MC'):
   hdca   = [None]*6
@@ -83,23 +86,3 @@ def getdata(dtype='MC'):
   dca = [h2a(h) for h in hdca]
   bkg = [h2a(h) for h in hbkg]
   return ept, ept_err, dca, bkg
-
-# def getbinning(dcares=0.007, bfrac=0.03, wt=''):
-#   eptHist, dcaHists = getmodelhists(dcares, bfrac, wt)
-#   eptx = binctrs(eptHist,'x')
-#   hptx = binctrs(eptHist,'y')
-#   dcax = binctrs(dcaHists[0],'x')
-#   return hptx, eptx, dcax
-
-def getraa(ptx, k):
-  
-  def draa(x):
-    return 1.3*np.sqrt(2*np.pi*1.1*1.1)*norm.pdf(x, loc=1.5, scale=1.1) + \
-    0.2/(1 + np.exp(-x+3))
-
-  def braa(x):
-    return 0.6*np.exp(-x/3) + \
-    1.1*np.sqrt(2*np.pi*1.5*1.5)*norm.pdf(x, loc=3.4, scale=1.5) + \
-    0.3/(1 + np.exp(-x+7))
-
-  return np.concatenate((draa(ptx[:k]), braa(ptx[:k])))
