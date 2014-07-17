@@ -125,12 +125,12 @@ if __name__=='__main__':
 
   dx = x[1] - x[0]
   print 'y[0]=', y[0], 'ypp[0]=', ypp[0], '6x[0]=', 6*x[0], 'dx=', dx
-  # ypp[0]  += y[0]/dx/dx
-  # ypp[-1] += y[-1]/dx/dx
 
-  fig, ax = plt.subplots()
+  fig, ax = plt.subplots(figsize=(4,5))
   ax.plot(x,y, label=r'$y = x^3$')
-  ax.plot(x[1:-1],ypp[1:-1], label=r'$Ly \approx d^2y/dx^2$')
   ax.plot(x,6*x, label=r'$6x$')
-  ax.legend()
+  ax.plot(x[1:-1],ypp[1:-1], label=r'$Ly$')
+  ax.set_title(r'$Ly$ vs. exact $d^2y/dx^2$')
+  ax.set_xlabel('x')
+  ax.legend(loc=2)
   fig.savefig('pdfs/deriv.pdf')
