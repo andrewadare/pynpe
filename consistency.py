@@ -12,27 +12,25 @@ import npe_io as io
 import raamodel
 from matplotlib.colors import LogNorm
 
-def binwidths(bins):
-  return np.array([j-i for i,j in zip(bins[:-1], bins[1:])])
-
 dtype     = 'MC'
 wt        = ''       # or '-weighted'
 dcares    = 0.007    # 0.007 cm in MB Au+Au, 0.014 cm in p+p.
 bfrac     = 0.03
-dcabins   = (1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0)
-dcaept    = np.array(dcabins[:-1] + binwidths(dcabins))
-ept, ept_err, dca, bkg = io.getdata(dtype)
 
-eptMat, dcaMat, hptx, eptx, dcax, hptbins, eptbins = \
-io.getmodel(dcares, bfrac, wt)
+eptMat                    = io.eptmatrix(dcares, bfrac, wt)
+dcaMat                    = io.dcamatrices(dcares, bfrac, wt)
+hpt, hptx, hptbins        = io.hadronpt(dcares, bfrac, wt)
+dcax, dcaeptx, dcaeptbins = io.dcabins(dcares, bfrac, wt)
+eptx, eptbins             = io.eptbins(dcares, bfrac, wt)
+ept, ept_err              = io.eptdata(dtype)
+dca, bkg                  = io.dcadata(dtype)
 
 ndim   = eptMat.shape[1]
-hpt    = eptMat.sum(axis=0)
 ept    = eptMat.sum(axis=1)              # Reassign !!!
 dca    = [m.sum(axis=1) for m in dcaMat] # Reassign !!!
 hptmod = hpt*raamodel.getraa(hptx,ndim/2)
-hptw   = binwidths(hptbins)
-eptw   = binwidths(eptbins)
+hptw   = io.binwidths(hptbins)
+eptw   = io.binwidths(eptbins)
 cpt    = np.concatenate([hpt[:ndim/2], np.zeros(ndim/2)])
 bpt    = np.concatenate([np.zeros(ndim/2), hpt[ndim/2:]])
 
@@ -85,7 +83,7 @@ def plotdca_dists():
       a.set_ylim([1, 1.2*np.max(hpt)])
       a.tick_params(axis='x', top='off', labelsize=6)
       a.tick_params(axis='y', labelsize=6)
-      s = r'{0:.1f}-{1:.1f} GeV/c'.format(dcabins[i], dcabins[i+1])
+      s = r'{0:.1f}-{1:.1f} GeV/c'.format(dcaeptbins[i], dcaeptbins[i+1])
       a.text(0.55, 0.9, s, fontsize=8, transform=a.transAxes)
       a.step(dcax, hfold_dca[i], lw=1, alpha = 0.8, color='crimson')
       a.step(dcax, cfold_dca[i], lw=1, alpha = 0.8, color='darkorange')
@@ -161,12 +159,9 @@ def plotbfrac():
   ax.errorbar(eptx, bfold_ept/hfold_ept, #yerr= [eptf_lo, eptf_hi],
               lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='crimson',
               label=r'$A_{ept}$*bpt / $A_{ept}$*hpt')
-  ax.errorbar(dcaept, bfrac_dca, 
+  ax.errorbar(dcaeptx, bfrac_dca, 
               lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='blue',
               label=r'$A_{dca}$*bpt / $A_{dca}$*hpt')
-  # ax.errorbar(eptx, ept/eptw, yerr=ept_err, 
-  #             lw=2, ls='*', marker='o', color='white',
-  #             label=r'$e^{\pm}$ $p_T$ data')
   ax.legend(loc=2)
   fig.savefig('pdfs/bfrac-check.pdf')
   return

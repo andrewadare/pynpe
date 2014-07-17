@@ -13,76 +13,69 @@ def checkobjs(objs, source):
       print("Exit")
       sys.exit()
 
-def getmodelhists(dcares=0.007, bfrac=0.03, wt=''):
-  dcaHists = [None]*6
-  s = 'bfrac{0:.3f}-dcares{1:.0f}um{2}.root'.format(bfrac, dcares*1e4, wt)
-  f = TFile('rootfiles/' + s)
-  eptHist = f.Get('hAept')
-  # hptGen = fe.Get('hptGen')
-  for i in range(6):
-    h = f.Get('hdca{}'.format(i))
-    dcaHists[i] = h 
-    print dcaHists[i].GetName(), dcaHists[i].GetEntries()
-  checkobjs([item for sublist in [eptHist,dcaHists] for item in sublist],
-            f.GetName())
-  return eptHist, dcaHists
+def binwidths(bins):
+  return np.array([j-i for i,j in zip(bins[:-1], bins[1:])])
 
-def getmodel(dcares=0.007, bfrac=0.03, wt=''):
-  dcaHists = [None]*6
+def modelfile(dcares=0.007, bfrac=0.03, wt=''):
   s = 'bfrac{0:.3f}-dcares{1:.0f}um{2}.root'.format(bfrac, dcares*1e4, wt)
-  f = TFile('rootfiles/' + s)
-  eptHist = f.Get('hAept')
-  # hptGen = fe.Get('hptGen')
-  for i in range(6):
-    h = f.Get('hdca{}'.format(i))
-    dcaHists[i] = h 
+  return TFile('rootfiles/' + s)
 
+def eptmatrix(dcares=0.007, bfrac=0.03, wt=''):
+  f = modelfile(dcares, bfrac, wt)
+  eptHist = f.Get('hAept')
   eptMat = h2a(eptHist)
+  return eptMat
+
+def dcamatrices(dcares=0.007, bfrac=0.03, wt=''):
+  dcaHists = [None]*6
+  f = modelfile(dcares, bfrac, wt)
+  for i in range(6):
+    h = f.Get('hdca{}'.format(i))
+    dcaHists[i] = h 
   dcaMat = [h2a(h) for h in dcaHists]
+  return dcaMat
 
-  hptx = binctrs(eptHist,'y')
-  eptx = binctrs(eptHist,'x')
-  dcax = binctrs(dcaHists[0],'x')
-
+def hadronpt(dcares=0.007, bfrac=0.03, wt=''):
+  f = modelfile(dcares, bfrac, wt)
+  eptHist = f.Get('hAept')
+  eptMat  = h2a(eptHist)
+  hpt     = eptMat.sum(axis=0)
+  hptx    = binctrs(eptHist,'y')
   hptbins = binedges(eptHist,'y')
+  return hpt, hptx, hptbins
+
+def dcabins(dcares=0.007, bfrac=0.03, wt=''):
+  f = modelfile(dcares, bfrac, wt)
+  dcaHist = f.Get('hdca0')
+  dcax    = binctrs(dcaHist,'x')
+  dcaeptbins = np.array((1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0))
+  dcaeptx    = dcaeptbins[:-1] + binwidths(dcaeptbins)
+  return dcax, dcaeptx, dcaeptbins
+
+def eptbins(dcares=0.007, bfrac=0.03, wt=''):
+  f = modelfile(dcares, bfrac, wt)
+  eptHist = f.Get('hAept')
+  eptx    = binctrs(eptHist,'x')
   eptbins = binedges(eptHist,'x')
+  return eptx, eptbins
 
-  return eptMat, dcaMat, hptx, eptx, dcax, hptbins, eptbins
-
-def getdatahists(dtype='MC'):
-  hdca   = [None]*6
-  hbkg   = [None]*6
-  de = {'MC':'simspectra', 'PP': 'ppg077spectra', 'MB': 'ppg077spectra'}
-  dd = {'MC':'simdca',     'PP': 'qm12dca',       'MB': 'qm12dca'}
+def eptdata(dtype='MC'):
+  de = {'MC':'simspectra', 'PP':'ppg077spectra', 'MB':'ppg077spectra'}
   fe = TFile('rootfiles/{}.root'.format(de[dtype]))
-  fd = TFile('rootfiles/{}.root'.format(dd[dtype]))
-
   hept = fe.Get('hEpt' + dtype)
-
-  for i in range(6):
-    prefix = '' if dtype=='MC' else 'qm12'
-    hdca[i] = fd.Get('{}{}dca{}'.format(prefix, dtype, i))
-    hbkg[i] = fd.Get('{}{}bkg{}'.format(prefix, dtype, i))
-
-  return hept, hdca, hbkg
-
-def getdata(dtype='MC'):
-  hdca   = [None]*6
-  hbkg   = [None]*6
-  de = {'MC':'simspectra', 'PP': 'ppg077spectra', 'MB': 'ppg077spectra'}
-  dd = {'MC':'simdca',     'PP': 'qm12dca',       'MB': 'qm12dca'}
-  fe = TFile('rootfiles/{}.root'.format(de[dtype]))
-  fd = TFile('rootfiles/{}.root'.format(dd[dtype]))
-
-  hept = fe.Get('hEpt' + dtype)
-
-  for i in range(6):
-    prefix = '' if dtype=='MC' else 'qm12'
-    hdca[i] = fd.Get('{}{}dca{}'.format(prefix, dtype, i))
-    hbkg[i] = fd.Get('{}{}bkg{}'.format(prefix, dtype, i))
-
   ept     = h2a(hept)
   ept_err = h2a(hept, 'e')
+  return ept, ept_err
+
+def dcadata(dtype='MC'):
+  hdca   = [None]*6
+  hbkg   = [None]*6
+  dd = {'MC':'simdca', 'PP':'qm12dca', 'MB':'qm12dca'}
+  fd = TFile('rootfiles/{}.root'.format(dd[dtype]))
+  for i in range(6):
+    prefix = '' if dtype=='MC' else 'qm12'
+    hdca[i] = fd.Get('{}{}dca{}'.format(prefix, dtype, i))
+    hbkg[i] = fd.Get('{}{}bkg{}'.format(prefix, dtype, i))
   dca = [h2a(h) for h in hdca]
   bkg = [h2a(h) for h in hbkg]
-  return ept, ept_err, dca, bkg
+  return dca, bkg
