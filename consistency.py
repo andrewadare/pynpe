@@ -13,21 +13,27 @@ import raamodel
 from matplotlib.colors import LogNorm
 
 dtype     = 'MC'
-wt        = ''       # or '-weighted'
 dcares    = 0.007    # 0.007 cm in MB Au+Au, 0.014 cm in p+p.
-bfrac     = 0.03
+bfrac     = 0.007
 
-eptMat                    = io.eptmatrix(dcares, bfrac, wt)
-dcaMat                    = io.dcamatrices(dcares, bfrac, wt)
-hpt, hptx, hptbins        = io.hadronpt(dcares, bfrac, wt)
-dcax, dcaeptx, dcaeptbins = io.dcabins(dcares, bfrac, wt)
-eptx, eptbins             = io.eptbins(dcares, bfrac, wt)
+io.mf = io.modelfile(dcares, bfrac)
+
+eptMat                    = io.eptmatrix()
+dcaMat                    = io.dcamatrices()
+dcax, dcaeptx, dcaeptbins = io.dcabins()
+eptx, eptbins             = io.eptbins()
 ept, ept_err              = io.eptdata(dtype)
 dca, bkg                  = io.dcadata(dtype)
+hpt, hptx, hptbins        = io.hadronpt()
+gpt, gptx                 = io.genpt()
+
+acc_gen_ratio = np.sum(hpt)/np.sum(gpt)
 
 ndim   = eptMat.shape[1]
-ept    = eptMat.sum(axis=1)              # Reassign !!!
 dca    = [m.sum(axis=1) for m in dcaMat] # Reassign !!!
+ept    = eptMat.sum(axis=1)              # Reassign !!!
+cept   = eptMat[:,:ndim/2].sum(axis=1)
+bept   = eptMat[:,ndim/2:].sum(axis=1)
 hptmod = hpt*raamodel.getraa(hptx,ndim/2)
 hptw   = io.binwidths(hptbins)
 eptw   = io.binwidths(eptbins)
@@ -36,20 +42,43 @@ bpt    = np.concatenate([np.zeros(ndim/2), hpt[ndim/2:]])
 
 #############################################################################
 # Normalize matrices
-eptMat /= eptMat.sum(axis=0)
-for (i,m) in enumerate(dcaMat):
-  colsum = np.maximum(np.ones_like(m), m.sum(axis=0))
-  dcaMat[i] = m/colsum
+scale = False
+correction = 1.0
+if scale:
+  correction = np.sum(np.dot(eptMat/eptMat.sum(axis=0), hpt))/\
+  np.sum(np.dot(eptMat/gpt, hpt))
+  eptMat /= gpt
+  for (i,m) in enumerate(dcaMat):
+    colsum = np.maximum(np.ones_like(m), gpt)
+    dcaMat[i] = m/colsum
+else:
+  eptMat /= eptMat.sum(axis=0)
+  for (i,m) in enumerate(dcaMat):
+    colsum = np.maximum(np.ones_like(m), m.sum(axis=0))
+    dcaMat[i] = m/colsum
 #############################################################################
+
+# Electron pt spectrum from decaying RAA-modified HF hadron spectra
 eptmod  = np.dot(eptMat,hptmod)
 
 # "Folded" distributions
-hfold_ept = np.dot(eptMat,hpt)
-cfold_ept = np.dot(eptMat,cpt)
-bfold_ept = np.dot(eptMat,bpt)
-hfold_dca = [np.dot(m,hpt) for m in dcaMat]
-cfold_dca = [np.dot(m,cpt) for m in dcaMat]
-bfold_dca = [np.dot(m,bpt) for m in dcaMat]
+hfold_ept = np.dot(eptMat,hpt)*correction
+cfold_ept = np.dot(eptMat,cpt)*correction
+bfold_ept = np.dot(eptMat,bpt)*correction
+
+# rpt = hpt/gpt;
+# print "acc_gen_ratio (ROS):", acc_gen_ratio
+# print "SOR (arithmetic mean):", np.sum(rpt)/ndim
+# print "SOR (geometric mean):", np.power(np.prod(rpt), 1./ndim)
+# print "1/correction:", 1./correction 
+# print "refold/data:", np.sum(hfold_ept) / np.sum(ept)
+# sys.exit()
+# for item in [hfold_ept, cfold_ept, bfold_ept]:
+#   item *= correction
+
+hfold_dca = [np.dot(m,hpt)*correction for m in dcaMat]
+cfold_dca = [np.dot(m,cpt)*correction for m in dcaMat]
+bfold_dca = [np.dot(m,bpt)*correction for m in dcaMat]
 bfrac_dca = np.array([np.sum(b)/np.sum(h) for b,h in zip(bfold_dca, hfold_dca)])
 
 def plotdca_matrices():
@@ -131,6 +160,10 @@ def plotept_dist():
   ax.errorbar(eptx, ept/eptw, yerr=ept_err, 
               lw=2, ls='*', marker='o', color='white',
               label=r'$e^{\pm}$ $p_T$ data')
+
+  ax.plot(eptx, cept/eptw, 'o', color='green', label=r'PYTHIA $c \to e^{\pm}$')
+  ax.plot(eptx, bept/eptw, 'o', color='yellow', label=r'PYTHIA $b \to e^{\pm}$')
+
   ax.legend()
   fig.savefig('pdfs/ept-check.pdf')
 

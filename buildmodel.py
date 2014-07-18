@@ -1,9 +1,9 @@
 import os, sys
 from ROOT import gSystem, gROOT, TFile, TH3F
-from vtx_io import checkobjs
+from npe_io import checkobjs
 
 wt = ''           # or "-weighted"
-bfrac = 0.03      # FONLL predicts approx. 0.0072
+bfrac = 0.0072    # FONLL predicts approx. 0.0072
 dcares = 0.007    # 0.007 cm in MB Au+Au, 0.014 cm in p+p.
 norm = '_normalized' if wt=='-weighted' else ''
 gSystem.Load('../dcagen/DcaGen_C.so')
