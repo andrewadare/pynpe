@@ -24,30 +24,36 @@ dcax, dcaeptx, dcaeptbins = io.dcabins()
 eptx, eptbins             = io.eptbins()
 ept, ept_err              = io.eptdata(dtype)
 dca, bkg                  = io.dcadata(dtype)
-hpt, hptx, hptbins        = io.hadronpt()
+hpte, hptd, hptx, hptbins = io.hadronpt()
 gpt, gptx                 = io.genpt()
+dcaweights                = io.dcaweights(bfrac)
 
-acc_gen_ratio = np.sum(hpt)/np.sum(gpt)
+# acc_gen_ratio = np.sum(hpt)/np.sum(gpt)
 
 ndim   = eptMat.shape[1]
-dca    = [m.sum(axis=1) for m in dcaMat] # Reassign !!!
-ept    = eptMat.sum(axis=1)              # Reassign !!!
+dca    = [m.sum(axis=1) for m in dcaMat] # !!! Reassignment !!!
+ept    = eptMat.sum(axis=1)              # !!! Reassignment !!!
 cept   = eptMat[:,:ndim/2].sum(axis=1)
 bept   = eptMat[:,ndim/2:].sum(axis=1)
-hptmod = hpt*raamodel.getraa(hptx,ndim/2)
+hptmod = hpte*raamodel.getraa(hptx,ndim/2)
 hptw   = io.binwidths(hptbins)
 eptw   = io.binwidths(eptbins)
-cpt    = np.concatenate([hpt[:ndim/2], np.zeros(ndim/2)])
-bpt    = np.concatenate([np.zeros(ndim/2), hpt[ndim/2:]])
+
+z      = np.zeros(ndim/2)
+cpte   = np.concatenate([hpte[:ndim/2], z])
+bpte   = np.concatenate([z, hpte[ndim/2:]])
+cptd   = [np.concatenate([a[:ndim/2], z]) for a in hptd]
+bptd   = [np.concatenate([z, a[ndim/2:]]) for a in hptd]
 
 #############################################################################
 # Normalize matrices
+# correction = 1.0
 scale = False
-correction = 1.0
 if scale:
-  correction = np.sum(np.dot(eptMat/eptMat.sum(axis=0), hpt))/\
-  np.sum(np.dot(eptMat/gpt, hpt))
-  eptMat /= gpt
+  # correction = np.sum(np.dot(eptMat/eptMat[].sum(axis=0), hpt))/\
+  # np.sum(np.dot(eptMat/gpt, hpt))
+  # eptMat /= gpt
+  eptMat /= eptMat.sum(axis=0)
   for (i,m) in enumerate(dcaMat):
     colsum = np.maximum(np.ones_like(m), gpt)
     dcaMat[i] = m/colsum
@@ -55,16 +61,16 @@ else:
   eptMat /= eptMat.sum(axis=0)
   for (i,m) in enumerate(dcaMat):
     colsum = np.maximum(np.ones_like(m), m.sum(axis=0))
-    dcaMat[i] = m/colsum
+    dcaMat[i] = m/colsum #* dcaweights[i]
 #############################################################################
 
 # Electron pt spectrum from decaying RAA-modified HF hadron spectra
 eptmod  = np.dot(eptMat,hptmod)
 
 # "Folded" distributions
-hfold_ept = np.dot(eptMat,hpt)*correction
-cfold_ept = np.dot(eptMat,cpt)*correction
-bfold_ept = np.dot(eptMat,bpt)*correction
+hfold_ept = np.dot(eptMat,hpte)
+cfold_ept = np.dot(eptMat,cpte)
+bfold_ept = np.dot(eptMat,bpte)
 
 # rpt = hpt/gpt;
 # print "acc_gen_ratio (ROS):", acc_gen_ratio
@@ -76,9 +82,19 @@ bfold_ept = np.dot(eptMat,bpt)*correction
 # for item in [hfold_ept, cfold_ept, bfold_ept]:
 #   item *= correction
 
-hfold_dca = [np.dot(m,hpt)*correction for m in dcaMat]
-cfold_dca = [np.dot(m,cpt)*correction for m in dcaMat]
-bfold_dca = [np.dot(m,bpt)*correction for m in dcaMat]
+hfold_dca = [np.dot(m,v) for m,v in zip(dcaMat,hptd)]
+cfold_dca = [np.dot(m,v) for m,v in zip(dcaMat,cptd)]
+bfold_dca = [np.dot(m,v) for m,v in zip(dcaMat,bptd)]
+
+# scf = [np.sum(x)/np.sum(y) for x,y in zip(hfold_dca, dca)]
+# print scf
+# hfold_dca = [hfold_dca[i]/scf[i] for i in range(len(hfold_dca))]
+# cfold_dca = [cfold_dca[i]/scf[i] for i in range(len(cfold_dca))]
+# bfold_dca = [bfold_dca[i]/scf[i] for i in range(len(bfold_dca))]
+
+# for l in [hfold_dca, cfold_dca, bfold_dca]:
+#   l = [x*y for x,y in zip(l,scf)]
+
 bfrac_dca = np.array([np.sum(b)/np.sum(h) for b,h in zip(bfold_dca, hfold_dca)])
 
 def plotdca_matrices():
@@ -109,7 +125,7 @@ def plotdca_dists():
       i = nc*row + col
       a = axes[row,col]
       a.set_yscale('log')
-      a.set_ylim([1, 1.2*np.max(hpt)])
+      a.set_ylim([1, 1.2*np.max(hptd[i])])
       a.tick_params(axis='x', top='off', labelsize=6)
       a.tick_params(axis='y', labelsize=6)
       s = r'{0:.1f}-{1:.1f} GeV/c'.format(dcaeptbins[i], dcaeptbins[i+1])
@@ -122,8 +138,6 @@ def plotdca_dists():
       a.step(dcax, dca[i], color='black', alpha = 0.6)
       if False:
         a.step(dcax, dcamod[i], color='red', alpha = 0.6)
-  # a.errorbar(eptx, eptmod, yerr=ept_err, lw=2, ls='*', marker='o', color='k')
-  # fig.colorbar(p)
   fig.savefig('pdfs/dca_dists.pdf', bbox_inches='tight')
   return
 
@@ -169,17 +183,23 @@ def plotept_dist():
 
 def plothpt():
   print("plothpt()")
-  fig, axes = plt.subplots(1,2)
+  fig, axes = plt.subplots(1,2,sharey=True)
   ptx = hptx[:ndim/2]
   for ax in axes:
-    cb = 'charm' if ax == axes[0] else 'beauty'
+    cb = 'c' if ax == axes[0] else 'b'
     r  = range(ndim/2) if ax == axes[0] else range(ndim/2,ndim)
     w  = hptw[r]
     ax.set_yscale('log')
     ax.set_xlabel(r'{} hadron $p_T$ [GeV/c]'.format(cb))
-    ax.plot(ptx, hpt[r]/w, lw=2, ls='*', marker='o', color='white')
-    ax.plot(ptx, hptmod[r]/w, lw=2, ls='*', marker='s', color='black')
-  
+    ax.plot(ptx, hpte[r]/w, 'o-',label=r'$h\to e \in$ [1,9] GeV/c')
+    for i,d in enumerate(hptd):
+      ax.plot(ptx, d[r]/w, 'o-',
+              label=r'$h\to e \in$ [{:.1f},{:.1f}] GeV/c'.format(dcaeptbins[i],
+                                                         dcaeptbins[i+1]))
+
+    # ax.plot(ptx, hptmod[r]/w, lw=2, ls='*', marker='s', color='black')
+  axes[1].legend(prop={'size':10})
+  fig.tight_layout()
   fig.savefig('pdfs/hpt-check.pdf')
   return
 

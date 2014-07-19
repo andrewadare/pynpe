@@ -46,7 +46,7 @@ def dcamatrices():
 def dcabins():
   dcaHist = mf.Get('hdca0')
   dcax    = binctrs(dcaHist,'x')
-  dcaeptx = dcaeptbins[:-1] + binwidths(dcaeptbins)
+  dcaeptx = dcaeptbins[:-1] + 0.4*binwidths(dcaeptbins) # .3 ~ <pt> in bin TODO: do it right
   return dcax, dcaeptx, dcaeptbins
 
 def eptbins():
@@ -76,24 +76,35 @@ def dcadata(dtype='MC'):
   bkg = [h2a(h) for h in hbkg]
   return dca, bkg
 
+def dcaweights(bfrac):
+  hDept = mf.Get('hDept')
+  hBept = mf.Get('hBept')
+  ce = h2a(hDept.ProjectionX())
+  be = h2a(hBept.ProjectionX())
+  he = (1-bfrac)*ce + bfrac*be
+  wts, bins = np.histogram(binctrs(hDept,'x'), bins=dcaeptbins, weights=he)
+  wts /= np.sum(wts)
+  return wts
+
 def hadronpt():
   '''
   Return pt distribution of HF hadrons in detector acceptance.
   '''
   eptHist = mf.Get('hAept')
-  eptMat  = h2a(eptHist)
-  hpt     = eptMat.sum(axis=0)
   hptx    = binctrs(eptHist,'y')
   hptbins = binedges(eptHist,'y')
-  return hpt, hptx, hptbins
+  eptMat  = h2a(eptHist)
+  hpte    = eptMat.sum(axis=0)
+  hptd    = [m.sum(axis=0) for m in dcamatrices()]
+  return hpte, hptd, hptx, hptbins
 
 def genpt(opt=''):
   '''
   Return pt distribution of HF hadrons generated into all phase space.
   Note that gptx = hptx by definition (returned here for convenience).
   '''
-  hpt, gptx, hptbins = hadronpt()
-  N = hpt.shape[0]/2 + 1
+  hpte, hptd, gptx, hptbins = hadronpt()
+  N = hpte.shape[0]/2 + 1
   h4 = mf.Get('hadron_pt_4')
   h5 = mf.Get('hadron_pt_5')
   c = h2a(h4)
@@ -111,9 +122,9 @@ if __name__=='__main__':
   import matplotlib.pyplot as plt
 
   mf = modelfile(0.007, 0.007)
-  hpt, hptx, hptbins = hadronpt()
+  hpte, hptd, hptx, hptbins = hadronpt()
   c, b, cx, ch, bh, gpt, gptx = genpt('all')
-  ndim = hpt.shape[0]
+  ndim = hpte.shape[0]
 
   fig, ax = plt.subplots()
   ax.set_yscale('log')
@@ -132,7 +143,7 @@ if __name__=='__main__':
     ax.set_yscale('log')
     ax.set_xlabel(r'{} hadron $p_T$ [GeV/c]'.format(cb))
     ax.plot(ptx, gpt[r], 'o', color='cyan', label='generated')
-    ax.plot(ptx, hpt[r], 'o', color='gold', label='accepted')
+    ax.plot(ptx, hpte[r], 'o', color='gold', label='accepted')
   axes[0].legend()
   fig.savefig('pdfs/hpt-gen-acc.pdf')
 
@@ -145,6 +156,6 @@ if __name__=='__main__':
     ax.set_ylim([3e-5,1e-2])
     ax.set_yscale('log')
     ax.set_xlabel(r'{} hadron $p_T$ [GeV/c]'.format(cb))
-    ax.plot(ptx, hpt[r]/gpt[r], 'o', color='lime', label='accepted/generated')
+    ax.plot(ptx, hpte[r]/gpt[r], 'o', color='lime', label='accepted/generated')
   axes[1].legend()
   fig.savefig('pdfs/hpt-ratio.pdf')
