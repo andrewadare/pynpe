@@ -134,7 +134,7 @@ if __name__=='__main__':
   ax.legend()
   fig.savefig('pdfs/hpt-gen-finebins.pdf')
 
-  fig, axes = plt.subplots(1, 2)
+  fig, axes = plt.subplots(1, 2, sharey=True)
   ptx = hptx[:ndim/2]
   for ax in axes:
     cb = 'c' if ax == axes[0] else 'b'

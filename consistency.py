@@ -28,18 +28,17 @@ hpte, hptd, hptx, hptbins = io.hadronpt()
 gpt, gptx                 = io.genpt()
 dcaweights                = io.dcaweights(bfrac)
 
-# acc_gen_ratio = np.sum(hpt)/np.sum(gpt)
-
 ndim   = eptMat.shape[1]
 dca    = [m.sum(axis=1) for m in dcaMat] # !!! Reassignment !!!
 ept    = eptMat.sum(axis=1)              # !!! Reassignment !!!
 cept   = eptMat[:,:ndim/2].sum(axis=1)
 bept   = eptMat[:,ndim/2:].sum(axis=1)
-hptmod = hpte*raamodel.getraa(hptx,ndim/2)
 hptw   = io.binwidths(hptbins)
 eptw   = io.binwidths(eptbins)
 
 z      = np.zeros(ndim/2)
+cptg   = np.concatenate([gpt[:ndim/2], z])
+bptg   = np.concatenate([z, gpt[ndim/2:]])
 cpte   = np.concatenate([hpte[:ndim/2], z])
 bpte   = np.concatenate([z, hpte[ndim/2:]])
 cptd   = [np.concatenate([a[:ndim/2], z]) for a in hptd]
@@ -48,23 +47,20 @@ bptd   = [np.concatenate([z, a[ndim/2:]]) for a in hptd]
 #############################################################################
 # Normalize matrices
 # correction = 1.0
-scale = False
+scale = True
 if scale:
-  # correction = np.sum(np.dot(eptMat/eptMat[].sum(axis=0), hpt))/\
-  # np.sum(np.dot(eptMat/gpt, hpt))
-  # eptMat /= gpt
-  eptMat /= eptMat.sum(axis=0)
+  eptMat /= gpt
   for (i,m) in enumerate(dcaMat):
-    colsum = np.maximum(np.ones_like(m), gpt)
-    dcaMat[i] = m/colsum
+    dcaMat[i] /= gpt
 else:
   eptMat /= eptMat.sum(axis=0)
   for (i,m) in enumerate(dcaMat):
     colsum = np.maximum(np.ones_like(m), m.sum(axis=0))
-    dcaMat[i] = m/colsum #* dcaweights[i]
+    dcaMat[i] = m/colsum
 #############################################################################
 
 # Electron pt spectrum from decaying RAA-modified HF hadron spectra
+hptmod = hpte*raamodel.getraa(hptx,ndim/2)
 eptmod  = np.dot(eptMat,hptmod)
 
 # "Folded" distributions
@@ -72,28 +68,21 @@ hfold_ept = np.dot(eptMat,hpte)
 cfold_ept = np.dot(eptMat,cpte)
 bfold_ept = np.dot(eptMat,bpte)
 
-# rpt = hpt/gpt;
-# print "acc_gen_ratio (ROS):", acc_gen_ratio
-# print "SOR (arithmetic mean):", np.sum(rpt)/ndim
-# print "SOR (geometric mean):", np.power(np.prod(rpt), 1./ndim)
-# print "1/correction:", 1./correction 
-# print "refold/data:", np.sum(hfold_ept) / np.sum(ept)
-# sys.exit()
-# for item in [hfold_ept, cfold_ept, bfold_ept]:
-#   item *= correction
-
 hfold_dca = [np.dot(m,v) for m,v in zip(dcaMat,hptd)]
 cfold_dca = [np.dot(m,v) for m,v in zip(dcaMat,cptd)]
 bfold_dca = [np.dot(m,v) for m,v in zip(dcaMat,bptd)]
 
-# scf = [np.sum(x)/np.sum(y) for x,y in zip(hfold_dca, dca)]
-# print scf
-# hfold_dca = [hfold_dca[i]/scf[i] for i in range(len(hfold_dca))]
-# cfold_dca = [cfold_dca[i]/scf[i] for i in range(len(cfold_dca))]
-# bfold_dca = [bfold_dca[i]/scf[i] for i in range(len(bfold_dca))]
+if scale:
+  hfold_ept = np.dot(eptMat,gpt)
+  cfold_ept = np.dot(eptMat,cptg)
+  bfold_ept = np.dot(eptMat,bptg)
 
-# for l in [hfold_dca, cfold_dca, bfold_dca]:
-#   l = [x*y for x,y in zip(l,scf)]
+  hfold_dca = [np.dot(m,gpt) for m in dcaMat]
+  cfold_dca = [np.dot(m,cptg) for m in dcaMat]
+  bfold_dca = [np.dot(m,bptg) for m in dcaMat]
+
+  hptmod = gpt*raamodel.getraa(hptx,ndim/2)
+  eptmod = np.dot(eptMat,hptmod)
 
 bfrac_dca = np.array([np.sum(b)/np.sum(h) for b,h in zip(bfold_dca, hfold_dca)])
 
@@ -107,12 +96,12 @@ def plotdca_matrices():
       a = axes[row,col]
       a.tick_params(axis='x', top='off', labelsize=4)
       a.tick_params(axis='y', left='off', right='off', labelsize=4)
-      s = r'{0:.1f}-{1:.1f} GeV/c'.format(dcabins[i], dcabins[i+1])
+      s = r'{0:.1f}-{1:.1f} GeV/c'.format(dcaeptbins[i], dcaeptbins[i+1])
       a.text(0.6, 0.9, s, fontsize=5, transform=a.transAxes)
       m = dcaMat[i]
       p = a.pcolormesh(m, norm=LogNorm(vmin=m.min()+1e-8, vmax=m.max()),
                        cmap='Spectral_r')
-  # fig.colorbar(p)
+  fig.colorbar(p)
   fig.savefig('pdfs/dca_matrices.pdf', bbox_inches='tight')
   return
 
@@ -168,9 +157,9 @@ def plotept_dist():
   ax.errorbar(eptx, bfold_ept/eptw, #yerr= [eptf_lo, eptf_hi],
               lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='dodgerblue',
               label=r'$A_{ept}$*bpt')
-  ax.errorbar(eptx, eptmod/eptw, yerr=ept_err, 
-              lw=2, ls='*', marker='o', color='k',
-              label=r'$A_{ept}$*hptmod')
+  # ax.errorbar(eptx, eptmod/eptw, yerr=ept_err, 
+  #             lw=2, ls='*', marker='o', color='k',
+  #             label=r'$A_{ept}$*hptmod')
   ax.errorbar(eptx, ept/eptw, yerr=ept_err, 
               lw=2, ls='*', marker='o', color='white',
               label=r'$e^{\pm}$ $p_T$ data')
@@ -183,7 +172,7 @@ def plotept_dist():
 
 def plothpt():
   print("plothpt()")
-  fig, axes = plt.subplots(1,2,sharey=True)
+  fig, axes = plt.subplots(1, 2, sharey=True)
   ptx = hptx[:ndim/2]
   for ax in axes:
     cb = 'c' if ax == axes[0] else 'b'
@@ -191,6 +180,7 @@ def plothpt():
     w  = hptw[r]
     ax.set_yscale('log')
     ax.set_xlabel(r'{} hadron $p_T$ [GeV/c]'.format(cb))
+    ax.plot(ptx, gpt[r]/w, 'o-', color='gray', label=r'Generated HF hadrons')
     ax.plot(ptx, hpte[r]/w, 'o-',label=r'$h\to e \in$ [1,9] GeV/c')
     for i,d in enumerate(hptd):
       ax.plot(ptx, d[r]/w, 'o-',
@@ -198,7 +188,7 @@ def plothpt():
                                                          dcaeptbins[i+1]))
 
     # ax.plot(ptx, hptmod[r]/w, lw=2, ls='*', marker='s', color='black')
-  axes[1].legend(prop={'size':10})
+  axes[0].legend(prop={'size':10})
   fig.tight_layout()
   fig.savefig('pdfs/hpt-check.pdf')
   return
@@ -222,7 +212,7 @@ def plotbfrac():
 if __name__=='__main__':
   plotept_matrix(eptMat)
   plotept_dist()
-  # plotdca_matrices()
+  plotdca_matrices()
   plotdca_dists()
   plothpt()
   plotbfrac()
