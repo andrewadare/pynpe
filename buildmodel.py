@@ -1,3 +1,11 @@
+'''
+This script uses the DcaGen class
+https://git.racf.bnl.gov/phenix/git/vtx-analysis/dcagen.git
+to generate PYTHIA decay models from 3-D histograms.
+Specifically, the histograms are re-binned and projected to 2D with bins
+matching the PHENIX datasets.
+'''
+
 import os, sys
 from ROOT import gSystem, gROOT, TFile, TH3F
 from npe_io import checkobjs
