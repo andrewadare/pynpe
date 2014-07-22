@@ -46,8 +46,9 @@ def dcamatrices():
 def dcabins():
   dcaHist = mf.Get('hdca0')
   dcax    = binctrs(dcaHist,'x')
-  dcaeptx = dcaeptbins[:-1] + 0.4*binwidths(dcaeptbins) # .3 ~ <pt> in bin TODO: do it right
-  return dcax, dcaeptx, dcaeptbins
+  dcabins = binedges(dcaHist,'x')
+  dcaeptx = dcaeptbins[:-1] + 0.4*binwidths(dcaeptbins) # ~ <pt> in bin TODO: do it right
+  return dcax, dcabins, dcaeptx, dcaeptbins
 
 def eptbins():
   eptHist = mf.Get('hAept')
@@ -133,29 +134,3 @@ if __name__=='__main__':
   ax.plot(cx, b, 'o', color='yellow',label='generated b hadrons')
   ax.legend()
   fig.savefig('pdfs/hpt-gen-finebins.pdf')
-
-  fig, axes = plt.subplots(1, 2, sharey=True)
-  ptx = hptx[:ndim/2]
-  for ax in axes:
-    cb = 'c' if ax == axes[0] else 'b'
-    r  = range(ndim/2) if ax == axes[0] else range(ndim/2,ndim)
-    ax.set_xlim([0,20])
-    ax.set_yscale('log')
-    ax.set_xlabel(r'{} hadron $p_T$ [GeV/c]'.format(cb))
-    ax.plot(ptx, gpt[r], 'o', color='cyan', label='generated')
-    ax.plot(ptx, hpte[r], 'o', color='gold', label='accepted')
-  axes[0].legend()
-  fig.savefig('pdfs/hpt-gen-acc.pdf')
-
-  fig, axes = plt.subplots(1, 2, sharey=True)
-  ptx = hptx[:ndim/2]
-  for ax in axes:
-    cb = 'c' if ax == axes[0] else 'b'
-    r  = range(ndim/2) if ax == axes[0] else range(ndim/2,ndim)
-    ax.set_xlim([0,20])
-    ax.set_ylim([3e-5,1e-2])
-    ax.set_yscale('log')
-    ax.set_xlabel(r'{} hadron $p_T$ [GeV/c]'.format(cb))
-    ax.plot(ptx, hpte[r]/gpt[r], 'o', color='lime', label='accepted/generated')
-  axes[1].legend()
-  fig.savefig('pdfs/hpt-ratio.pdf')
