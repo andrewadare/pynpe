@@ -8,9 +8,10 @@ If large inconsistencies are seen, unfolding is unlikely to work.
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
 import npe_io as io
 import raamodel
-from matplotlib.colors import LogNorm
+from matrixplotter import mmplot
 
 dtype     = 'MC'
 dcares    = 0.007    # 0.007 cm in MB Au+Au, 0.014 cm in p+p.
@@ -20,7 +21,7 @@ io.mf = io.modelfile(dcares, bfrac)
 
 eptMat                    = io.eptmatrix()
 dcaMat                    = io.dcamatrices()
-dcax, dcaeptx, dcaeptbins = io.dcabins()
+dcax, dcabins, dcaeptx, dcaeptbins = io.dcabins()
 eptx, eptbins             = io.eptbins()
 ept, ept_err              = io.eptdata(dtype)
 dca, bkg                  = io.dcadata(dtype)
@@ -46,8 +47,12 @@ bptd   = [np.concatenate([z, a[ndim/2:]]) for a in hptd]
 
 #############################################################################
 # Normalize matrices
-# correction = 1.0
 scale = True
+
+# Keep the unscaled versions around for plotting
+eptMat0 = eptMat.copy()
+dcaMat0 = [m.copy() for m in dcaMat]
+
 if scale:
   eptMat /= gpt
   for (i,m) in enumerate(dcaMat):
@@ -86,6 +91,7 @@ if scale:
 
 bfrac_dca = np.array([np.sum(b)/np.sum(h) for b,h in zip(bfold_dca, hfold_dca)])
 
+
 def plotdca_matrices():
   print("plotdca_matrices()")
   nr,nc = 2,3
@@ -103,6 +109,31 @@ def plotdca_matrices():
                        cmap='Spectral_r')
   fig.colorbar(p)
   fig.savefig('pdfs/dca_matrices.pdf', bbox_inches='tight')
+  return
+
+def plotdca_marg():
+  print("plotdca_marg()")
+  nr,nc = 2,3
+  fig, axes = plt.subplots(nr,nc)
+  for row in range(nr):
+    for col in range(nc):
+      i = nc*row + col
+      a = axes[row,col]
+      a.set_yscale('log')
+      a.set_ylim([1, 1.2*np.max(hptd[i])])
+      a.tick_params(axis='x', top='off', labelsize=6)
+      a.tick_params(axis='y', labelsize=6)
+      s = r'{0:.1f}-{1:.1f} GeV/c'.format(dcaeptbins[i], dcaeptbins[i+1])
+      a.text(0.55, 0.9, s, fontsize=8, transform=a.transAxes)
+      a.step(dcax, hfold_dca[i], lw=1, alpha = 0.8, color='crimson')
+      a.step(dcax, cfold_dca[i], lw=1, alpha = 0.8, color='darkorange')
+      a.step(dcax, bfold_dca[i], lw=1, alpha = 0.8, color='dodgerblue')
+      if False:
+        a.step(dcax, bkg[i], color='brown')
+      a.step(dcax, dca[i], color='black', alpha = 0.6)
+      if False:
+        a.step(dcax, dcamod[i], color='red', alpha = 0.6)
+  fig.savefig('pdfs/dca_dists.pdf', bbox_inches='tight')
   return
 
 def plotdca_dists():
@@ -210,11 +241,39 @@ def plotbfrac():
   return
 
 if __name__=='__main__':
-  plotept_matrix(eptMat)
-  plotept_dist()
-  plotdca_matrices()
-  plotdca_dists()
-  plothpt()
-  plotbfrac()
+    mmplot(eptMat0, hptx, eptx, hptbins, eptbins,
+           xlabel=r'c hadron $p_T$ [GeV/c] $\qquad$ b hadron $p_T$ [GeV/c]',
+           ylabel=r'$e^{\pm}$ $p_T$ [GeV/c]',
+           desc=r'$h\to e\, \in\, [1,9]\, GeV/c$',
+           figname='pdfs/eptmat0.pdf')
+
+    for i,m in enumerate(dcaMat0):
+        mmplot(m, hptx, dcax, hptbins, dcabins,
+               xlabel=r'c hadron $p_T$ [GeV/c] $\qquad$ b hadron $p_T$ [GeV/c]',
+               ylabel=r'$e^{\pm}$ DCA [cm]',
+               desc=r'$h\to e\, \in\, [{:.1f},{:.1f}]\, GeV/c$'.format(dcaeptbins[i],
+                                                             dcaeptbins[i+1]),
+               figname='pdfs/dcamat0{}.pdf'.format(i))
+
+    mmplot(eptMat, hptx, eptx, hptbins, eptbins,
+           xlabel=r'c hadron $p_T$ [GeV/c] $\qquad$ b hadron $p_T$ [GeV/c]',
+           ylabel=r'$e^{\pm}$ $p_T$ [GeV/c]',
+           desc=r'$h\to e\, \in\, [1,9]\, GeV/c$',
+           figname='pdfs/eptmat.pdf')
+
+    for i,m in enumerate(dcaMat):
+        mmplot(m, hptx, dcax, hptbins, dcabins,
+               xlabel=r'c hadron $p_T$ [GeV/c] $\qquad$ b hadron $p_T$ [GeV/c]',
+               ylabel=r'$e^{\pm}$ DCA [cm]',
+               desc=r'$h\to e\, \in\, [{:.1f},{:.1f}]\, GeV/c$'.format(dcaeptbins[i],
+                                                             dcaeptbins[i+1]),
+               figname='pdfs/dcamat{}.pdf'.format(i))
+
+    plotept_matrix(eptMat)
+    plotept_dist()
+    # plotdca_matrices()
+    plotdca_dists()
+    plothpt()
+    plotbfrac()
 
 
