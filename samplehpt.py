@@ -44,6 +44,8 @@ eptmod = np.dot(eptmat, gptmod)
 ept_err = np.sqrt(eptmod)
 dcamod = [np.dot(m, gptmod) for m in io.dcamatrices()]
 eptx, eptbins = io.eptbins()
+gptw = io.binwidths(gptbins)
+eptw = io.binwidths(eptbins)
 
 # Ensemble of starting points for the walkers.
 print("Initializing {} {}-dim walkers...".format(nwalkers, ndim))
@@ -140,17 +142,17 @@ ptx = gptx[:ndim / 2]
 for ax in axes:
     cb = 'c' if ax == axes[0] else 'b'
     r = range(ndim / 2) if ax == axes[0] else range(ndim / 2, ndim)
+    w = gptw[r]
     ax.set_yscale('log')
     ax.set_xlabel(r'{} hadron $p_T$ [GeV/c]'.format(cb))
-    ax.fill_between(ptx, ymin[r], ymax[r], color='slategray', alpha=0.1)
+    ax.fill_between(ptx, ymin[r]/w, ymax[r]/w, color='slategray', alpha=0.1)
     for i in range(nwalkers):
-        ax.plot(ptx, p0[i, r], ls='*', marker='s',
+        ax.plot(ptx, p0[i, r]/w, ls='*', marker='s',
                 ms=14, color='deepskyblue', alpha=0.01)
-    ax.plot(ptx, gpt[r], lw=2, ls='*', marker='o', color='white')
-    ax.plot(ptx, gptmod[r], lw=2, ls='*', marker='s', color='black')
-    ax.errorbar(ptx, pq[r, 0], yerr=[pq[r, 2], pq[r, 1]],
+    ax.plot(ptx, gpt[r]/w, lw=2, ls='*', marker='o', color='white')
+    ax.plot(ptx, gptmod[r]/w, lw=2, ls='*', marker='s', color='black')
+    ax.errorbar(ptx, pq[r, 0]/w, yerr=[pq[r, 2]/w, pq[r, 1]/w],
                 ls='*', fmt='o', color='crimson', ecolor='crimson', capthick=2)
-
 fig.savefig('pdfs/hpt.pdf')
 
 # Draw ept
@@ -161,10 +163,10 @@ eptref_lo = np.dot(eptmat, pq[:, 2])
 fig, ax = plt.subplots()
 ax.set_yscale('log')
 ax.set_xlabel(r'$e^{\pm}$ $p_T$ [GeV/c]')
-ax.errorbar(eptx, ept, yerr=ept_err, lw=2, ls='*', marker='o', color='white')
-ax.errorbar(eptx, eptrefold, yerr=[eptref_lo, eptref_hi],
+ax.errorbar(eptx, ept/eptw, yerr=ept_err/eptw, lw=2, ls='*', marker='o', color='white')
+ax.errorbar(eptx, eptrefold/eptw, yerr=[eptref_lo/eptw, eptref_hi/eptw],
             lw=2, ls='*', marker='s', ms=10, color='r')
-ax.errorbar(eptx, eptmod, yerr=ept_err, lw=2, ls='*', marker='o', color='k')
+ax.errorbar(eptx, eptmod/eptw, yerr=ept_err/eptw, lw=2, ls='*', marker='o', color='k')
 fig.savefig('pdfs/ept.pdf')
 
 print("Done.")
