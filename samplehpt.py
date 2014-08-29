@@ -16,9 +16,10 @@ import raamodel
 import npe_io as io
 
 # Configuration
+use_all_data = True
 alpha = 0.2
 nwalkers = 500
-nburnin = 1000
+nburnin = 2000
 nsteps = 1000
 dtype = 'MC'
 dcares = 0.007  # 0.007 cm in MB Au+Au, 0.014 cm in p+p.
@@ -47,6 +48,20 @@ eptx, eptbins = io.eptbins()
 gptw = io.binwidths(gptbins)
 eptw = io.binwidths(eptbins)
 
+# Create a combined electron pt + electron DCA data list.
+alldata = [eptmod]
+[alldata.append(d) for d in dcamod]
+# Create a combined electron pt + electron DCA matrix list.
+allmats = [eptmat]
+[allmats.append(m) for m in dcamat]
+
+# # Rebin over all c or b hadron pt. 100 x 20 --> 100 x 2 matrices
+# for m in dcamat:
+#     cdca = m[:, :ndim / 2].sum(axis=1)
+#     bdca = m[:, ndim / 2:].sum(axis=1)
+#     allmats.append(np.c_[cdca, bdca])
+#  #   print(allmats[-1].shape)
+
 # Ensemble of starting points for the walkers.
 print("Initializing {} {}-dim walkers...".format(nwalkers, ndim))
 p0 = gpt * (1. + 0.1 * np.random.randn(nwalkers, ndim))
@@ -54,8 +69,20 @@ p0 = gpt * (1. + 0.1 * np.random.randn(nwalkers, ndim))
 ymin = 0.01 * gpt
 ymax = 2 * gpt
 L = lnpmodels.fd2(ndim)
-fcn = lnpmodels.l2_poisson
-args = [eptmat, eptmod, gpt, alpha, ymin, ymax, L]
+fcn = None  # Function returning values \propto posterior probability
+args = None  # Argument list for fcn
+
+if use_all_data:
+    # Use electron pt + 6 electron DCA datasets.
+    # alpha = 0.01
+    fcn = lnpmodels.l2_poisson_combined
+    args = [allmats, alldata, gpt, alpha, ymin, ymax, L]
+
+else:
+    # Use single electron pt dataset
+    fcn = lnpmodels.l2_poisson
+    args = [eptmat, eptmod, gpt, alpha, ymin, ymax, L]
+
 sampler = emcee.EnsembleSampler(nwalkers, ndim, fcn, args=args, threads=2)
 
 print("Burning in for {} steps...".format(nburnin), end=' ')
@@ -65,7 +92,6 @@ pos, prob, state = sampler.run_mcmc(p0, nburnin)
 sampler.reset()
 end = clock()
 print(str(end - start) + ' s')
-# print("state: {} len({}) {} {} {}".format(state[0], len(state[1]), state[2], state[3], state[4]))
 
 print("Running sampler for {} steps...".format(nsteps), end=' ')
 sys.stdout.flush()
@@ -77,7 +103,8 @@ print(str(end - start) + ' s')
 acc_frac = np.mean(sampler.acceptance_fraction)
 print("Mean acceptance fraction: {0:.3f}".format(acc_frac))
 
-# Initial shape is (nwalkers, nsteps, ndim). Reshape to (nwalkers*nsteps, ndim).
+# Initial shape is (nwalkers, nsteps, ndim). Reshape to (nwalkers*nsteps,
+# ndim).
 samples = sampler.chain.reshape((-1, ndim))
 
 # Posterior quantiles: list of ndim (16,50,84) percentile tuples
@@ -130,7 +157,7 @@ ax.set_xlabel('step')
 # ax.set_ylabel(r'$\langle$log likelihood$\rangle$')
 ax.set_ylabel(r'$\langle \ln(L) \rangle_{chains}$')
 ax.set_title(r'$\langle \ln(L) \rangle_{chains}$ vs. sample step')
-ax.plot(np.sum(sampler.lnprobability/nwalkers, axis=0), color='k')
+ax.plot(np.sum(sampler.lnprobability / nwalkers, axis=0), color='k')
 ax.text(0.05, 0.95, '{} chains after {} burn-in steps'.format(nwalkers, nburnin),
         transform=ax.transAxes)
 fig.savefig('pdfs/lnprob-vs-step.pdf')
@@ -145,13 +172,14 @@ for ax in axes:
     w = gptw[r]
     ax.set_yscale('log')
     ax.set_xlabel(r'{} hadron $p_T$ [GeV/c]'.format(cb))
-    ax.fill_between(ptx, ymin[r]/w, ymax[r]/w, color='slategray', alpha=0.1)
+    ax.fill_between(
+        ptx, ymin[r] / w, ymax[r] / w, color='slategray', alpha=0.1)
     for i in range(nwalkers):
-        ax.plot(ptx, p0[i, r]/w, ls='*', marker='s',
+        ax.plot(ptx, p0[i, r] / w, ls='*', marker='s',
                 ms=14, color='deepskyblue', alpha=0.01)
-    ax.plot(ptx, gpt[r]/w, lw=2, ls='*', marker='o', color='white')
-    ax.plot(ptx, gptmod[r]/w, lw=2, ls='*', marker='s', color='black')
-    ax.errorbar(ptx, pq[r, 0]/w, yerr=[pq[r, 2]/w, pq[r, 1]/w],
+    ax.plot(ptx, gpt[r] / w, lw=2, ls='*', marker='o', color='white')
+    ax.plot(ptx, gptmod[r] / w, lw=2, ls='*', marker='s', color='black')
+    ax.errorbar(ptx, pq[r, 0] / w, yerr=[pq[r, 2] / w, pq[r, 1] / w],
                 ls='*', fmt='o', color='crimson', ecolor='crimson', capthick=2)
 fig.savefig('pdfs/hpt.pdf')
 
@@ -163,10 +191,12 @@ eptref_lo = np.dot(eptmat, pq[:, 2])
 fig, ax = plt.subplots()
 ax.set_yscale('log')
 ax.set_xlabel(r'$e^{\pm}$ $p_T$ [GeV/c]')
-ax.errorbar(eptx, ept/eptw, yerr=ept_err/eptw, lw=2, ls='*', marker='o', color='white')
-ax.errorbar(eptx, eptrefold/eptw, yerr=[eptref_lo/eptw, eptref_hi/eptw],
+ax.errorbar(eptx, ept / eptw, yerr=ept_err / eptw,
+            lw=2, ls='*', marker='o', color='white')
+ax.errorbar(eptx, eptrefold / eptw, yerr=[eptref_lo / eptw, eptref_hi / eptw],
             lw=2, ls='*', marker='s', ms=10, color='r')
-ax.errorbar(eptx, eptmod/eptw, yerr=ept_err/eptw, lw=2, ls='*', marker='o', color='k')
+ax.errorbar(eptx, eptmod / eptw, yerr=ept_err / eptw,
+            lw=2, ls='*', marker='o', color='k')
 fig.savefig('pdfs/ept.pdf')
 
 print("Done.")
