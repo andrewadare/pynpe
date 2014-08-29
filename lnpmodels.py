@@ -114,13 +114,51 @@ def l2_poisson(x, A, b, x_prior, alpha, xmin, xmax, L=None):
 
     xr = xr[1:-1]  # Truncate to exclude boundary points
 
-    # ll = 0.0
-    # try:
-    #     ll = np.sum([lnpoiss(bi, np.dot(Ai, x)) for bi, Ai in zip(b, A)])
-    # except TypeError:
-    #     ll = lnpoiss(b, np.dot(A, x))
-
     return -alpha * alpha * np.dot(xr, xr) + lnpoiss(b, np.dot(A, x))
+
+
+def l2_poisson_shape(x, Alist, blist, x_prior, alpha, xmin, xmax, L=None):
+    '''
+    Compute likelihood based only on shape comparison between Ax and b.
+    Otherwise similar to l2_poisson.
+    '''
+
+    # Make a 2-vector with c-hadron and b-hadron integrated yields from x.
+    # ndim = x.shape[0]
+    # xint = np.array([np.sum(x[:ndim/2]), np.sum(x[ndim/2:ndim])])
+    
+    result = 0.0
+    for A, b in zip(Alist, blist):
+        if np.any(x < xmin) or np.any(x > xmax):
+            return -np.inf
+
+        xr = x / x_prior
+        if L is not None:
+            xr = np.dot(L, xr)
+
+        xr = xr[1:-1]  # Truncate to exclude boundary points
+
+        reg = -alpha * alpha * np.dot(xr, xr)
+        Ax = np.dot(A, x)
+        Ax = np.sum(b) / np.sum(Ax) * Ax
+        result += reg + lnpoiss(b, Ax)
+        # result += lnpoiss(b, Ax)
+
+    return result
+
+
+def l2_poisson_combined(x, Alist, blist, x_prior, alpha, xmin, xmax, L=None):
+    '''
+    Intended for use with electron pt model (data) as first element of 
+    Alist (blist), and electron DCA model/data as remaining elements.
+    '''
+    ll_ept = l2_poisson(x, Alist[0], blist[0],
+                        x_prior, alpha, xmin, xmax, L)
+    ll_dca = 0.
+    if (ll_ept > -np.inf):
+        ll_dca = l2_poisson_shape(x, Alist[1:], blist[1:], x_prior, alpha, xmin, xmax, L)
+    return ll_ept + 1e-13*ll_dca
+
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
