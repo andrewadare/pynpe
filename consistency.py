@@ -5,6 +5,7 @@ consistency.py:
 3. Check for consistency between data and model.
 If large inconsistencies are seen, unfolding is unlikely to work.
 '''
+import os
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
@@ -19,14 +20,16 @@ bfrac = 0.007
 
 io.mf = io.modelfile(dcares, bfrac)
 
-eptMat = io.eptmatrix()
+# Unweighted -- contents in counts. But if scale==True, they get weighted.
+eptMat = io.eptmatrix()      
 dcaMat = io.dcamatrices()
+
 dcax, dcabins, dcaeptx, dcaeptbins = io.dcabins()
 eptx, eptbins = io.eptbins()
 ept, ept_err = io.eptdata(dtype)
 dca, bkg = io.dcadata(dtype)
 hpte, hptd, hptx, hptbins = io.hadronpt()
-gpt, gptx = io.genpt()
+gpt, gptx, gptbins = io.genpt()
 dcaweights = io.dcaweights(bfrac)
 
 ndim = eptMat.shape[1]
@@ -262,8 +265,8 @@ if __name__ == '__main__':
         mmplot(m, hptx, dcax, hptbins, dcabins,
                xlabel=r'c hadron $p_T$ [GeV/c] $\qquad$ b hadron $p_T$ [GeV/c]',
                ylabel=r'$e^{\pm}$ DCA [cm]',
-               desc=r'$h\to e\, \in\, [{:.1f},{:.1f}]\, GeV/c$'.format(dcaeptbins[i],
-                                                                       dcaeptbins[i + 1]),
+               desc=r'$h\to e\, \in\, [{:.1f},{:.1f}]\, GeV/c$'\
+               .format(dcaeptbins[i], dcaeptbins[i + 1]),
                figname='pdfs/dcamat0{}.pdf'.format(i))
 
     mmplot(eptMat, hptx, eptx, hptbins, eptbins,
@@ -276,8 +279,8 @@ if __name__ == '__main__':
         mmplot(m, hptx, dcax, hptbins, dcabins,
                xlabel=r'c hadron $p_T$ [GeV/c] $\qquad$ b hadron $p_T$ [GeV/c]',
                ylabel=r'$e^{\pm}$ DCA [cm]',
-               desc=r'$h\to e\, \in\, [{:.1f},{:.1f}]\, GeV/c$'.format(dcaeptbins[i],
-                                                                       dcaeptbins[i + 1]),
+               desc=r'$h\to e\, \in\, [{:.1f},{:.1f}]\, GeV/c$'\
+               .format(dcaeptbins[i], dcaeptbins[i + 1]),
                figname='pdfs/dcamat{}.pdf'.format(i))
 
     plotept_dist()
@@ -285,3 +288,6 @@ if __name__ == '__main__':
     plotdca_dists()
     plothpt()
     plotbfrac()
+
+    os.system("pdftk pdfs/*.pdf cat output pdfs/all.pdf")
+
