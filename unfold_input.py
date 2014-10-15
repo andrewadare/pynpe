@@ -114,19 +114,29 @@ def h2a_rebin2d(h, newxbins, newybins, eps=1e-6):
     return a
 
 
-def eptmatrix(bfrac):
-    cfile = 'csv/c_to_ept.csv'
-    bfile = 'csv/b_to_ept.csv'
-    cmat = np.loadtxt(cfile, delimiter=',')
-    bmat = np.loadtxt(bfile, delimiter=',')
+def eptmatrix(bfrac, weighted=True):
+    cmat = np.loadtxt('csv/c_to_ept.csv', delimiter=',')
+    bmat = np.loadtxt('csv/b_to_ept.csv', delimiter=',')
+    if weighted == True:
+        chpt = np.loadtxt('csv/c_pt.csv', delimiter=',')
+        bhpt = np.loadtxt('csv/b_pt.csv', delimiter=',')
+        cmat /= chpt
+        bmat /= bhpt
+
     return np.hstack(((1. - bfrac) * cmat, bfrac * bmat))
 
 
-def dcamatrix(bfrac, eptbin):
+def dcamatrix(bfrac, eptbin, weighted=True):
     cfile = 'csv/c_to_dca_{}.csv'.format(eptbin)
     bfile = 'csv/b_to_dca_{}.csv'.format(eptbin)
     cmat = np.loadtxt(cfile, delimiter=',')
     bmat = np.loadtxt(bfile, delimiter=',')
+    if weighted == True:
+        chpt = np.loadtxt('csv/c_pt.csv', delimiter=',')
+        bhpt = np.loadtxt('csv/b_pt.csv', delimiter=',')
+        cmat /= chpt
+        bmat /= bhpt
+
     return np.hstack(((1. - bfrac) * cmat, bfrac * bmat))
 
 
