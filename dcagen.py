@@ -48,7 +48,7 @@ def project_and_save():
         c.SaveAs('pdfs/{}_to_ept.pdf'.format(labels[i]))
         # write_csv(h2a(haept), 'csv/{}_to_ept.csv'.format(labels[i]))
         write_csv(h2a_rebin2d(haept, eptbins, dptbins),
-                  'csv/{}_to_ept_rebin.csv'.format(labels[i]))
+                  'csv/{}_to_ept.csv'.format(labels[i]))
         # np.savetxt('csv/{}_to_ept.csv'.format(labels[i]), h2a(haept),
         #            fmt='%.0f', delimiter=',')
 
@@ -68,7 +68,7 @@ def project_and_save():
             c.SaveAs('pdfs/{}_to_dca_{}.pdf'.format(labels[i], j))
             # write_csv(h2a(hadca), 'csv/{}_to_dca_{}.csv'.format(labels[i], j))
             write_csv(h2a_rebin2d(hadca, dcabins, dptbins),
-                      'csv/{}_to_dca_rebin.csv'.format(labels[i]))
+                      'csv/{}_to_dca_{}.csv'.format(labels[i],j))
 
 
 def h2a_rebin2d(h, newxbins, newybins, eps=1e-6):
@@ -124,13 +124,23 @@ def find(name, path):
 
 def eptmatrix(bfrac):
     # Load a CSV to array and plot
-    cfile = 'csv/c_to_ept_rebin.csv'
-    bfile = 'csv/b_to_ept_rebin.csv'
+    cfile = 'csv/c_to_ept.csv'
+    bfile = 'csv/b_to_ept.csv'
     cmat = np.loadtxt(cfile, delimiter=',').reshape(get_dims(cfile))
     bmat = np.loadtxt(bfile, delimiter=',').reshape(get_dims(bfile))
     return np.hstack(((1.-bfrac)*cmat, bfrac*bmat))
 
-if __name__ == '__main__':
+
+def dcamatrix(bfrac, eptbin):
+    # Load a CSV to array and plot
+    cfile = 'csv/c_to_dca_{}.csv'.format(eptbin)
+    bfile = 'csv/b_to_dca_{}.csv'.format(eptbin)
+    cmat = np.loadtxt(cfile, delimiter=',').reshape(get_dims(cfile))
+    bmat = np.loadtxt(bfile, delimiter=',').reshape(get_dims(bfile))
+    return np.hstack(((1.-bfrac)*cmat, bfrac*bmat))
+
+
+# if __name__ == '__main__':
 
     # Open two 3-D ROOT histograms, rebin, and write to csv file
     # if find('dmeson_decays.csv', 'csv') == '' \
