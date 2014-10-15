@@ -255,6 +255,11 @@ def plotbfrac():
     return
 
 if __name__ == '__main__':
+
+    print hptx
+    print eptx
+    print hptbins
+    print eptbins
     mmplot(eptMat0, hptx, eptx, hptbins, eptbins,
            xlabel=r'c hadron $p_T$ [GeV/c] $\qquad$ b hadron $p_T$ [GeV/c]',
            ylabel=r'$e^{\pm}$ $p_T$ [GeV/c]',
@@ -289,5 +294,5 @@ if __name__ == '__main__':
     plothpt()
     plotbfrac()
 
-    os.system("pdftk pdfs/*.pdf cat output pdfs/all.pdf")
+    os.system("pdftk pdfs/*.pdf cat output all.pdf")
 
