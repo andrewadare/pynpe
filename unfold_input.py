@@ -11,12 +11,22 @@ bptbins = dptbins
 hptbins = np.hstack((dptbins[:-1], dptbins[-1] + bptbins))
 dcabins = np.linspace(-0.2, 0.2, 101)
 
+# Bin width arrays
+eptw = np.diff(eptbins)
+dptw = np.diff(dptbins)
+bptw = np.diff(bptbins)
+hptw = np.diff(hptbins)
+dcaw = np.diff(dcabins)
+
 # Bin center arrays
-eptx = eptbins[:-1] + np.diff(eptbins) / 2
-dptx = dptbins[:-1] + np.diff(dptbins) / 2
-bptx = bptbins[:-1] + np.diff(bptbins) / 2
-hptx = hptbins[:-1] + np.diff(hptbins) / 2
-dcax = dcabins[:-1] + np.diff(dcabins) / 2
+eptx = eptbins[:-1] + eptw / 2
+dptx = dptbins[:-1] + dptw / 2
+bptx = bptbins[:-1] + bptw / 2
+hptx = hptbins[:-1] + hptw / 2
+dcax = dcabins[:-1] + dcaw / 2
+
+# Number of "dimensions" = free parameters = bins in unfolding result
+ndim = len(hptx)
 
 
 def project_and_save(draw=False):
@@ -38,9 +48,9 @@ def project_and_save(draw=False):
 
         # Rebin inclusive generated hadron pt histogram and write to csv.
         # This is used for weighting of the decay matrices.
-        hr = hpt[i].Rebin(len(hbins)-1, cb[i] + 'pt', hbins)
+        # hr = hpt[i].Rebin(len(hbins) - 1, cb[i] + 'pt', hbins)
         np.savetxt('csv/{}_pt.csv'.format(cb[i]),
-                   h2a(hr), fmt='%.0f', delimiter=',',
+                   h2a_rebin1d(hpt[i], hbins), fmt='%.0f', delimiter=',',
                    header='Inclusive {} hadron pt binning: \n{}'
                    .format(cb[i], hbins))
 
@@ -91,6 +101,16 @@ def project_and_save(draw=False):
                 c.SaveAs('pdfs/{}_to_dca_{}.pdf'.format(cb[i], j))
 
 
+def h2a_rebin1d(h, newxbins, eps=1e-6):
+    a = np.zeros([len(newxbins) - 1])
+    for i, xlo in enumerate(newxbins[:-1]):
+        xhi = newxbins[i + 1]
+        ilo = h.GetXaxis().FindBin(xlo + eps)
+        ihi = h.GetXaxis().FindBin(xhi - eps)
+        a[i] = h.Integral(ilo, ihi)
+    return a
+
+
 def h2a_rebin2d(h, newxbins, newybins, eps=1e-6):
     a = np.zeros([len(newxbins) - 1, len(newybins) - 1])
     for j, ylo in enumerate(newybins[:-1]):
@@ -114,30 +134,83 @@ def h2a_rebin2d(h, newxbins, newybins, eps=1e-6):
     return a
 
 
+def genpt(bfrac):
+    chpt = np.loadtxt('csv/c_pt.csv', delimiter=',')
+    bhpt = np.loadtxt('csv/b_pt.csv', delimiter=',')
+    return np.hstack((chpt, bhpt))
+
+
 def eptmatrix(bfrac, weighted=True):
     cmat = np.loadtxt('csv/c_to_ept.csv', delimiter=',')
     bmat = np.loadtxt('csv/b_to_ept.csv', delimiter=',')
+    # nc,nb = np.sum(cmat), np.sum(bmat)
+    cf = (1. - bfrac)
+    bf = bfrac
+    # cf = (nc+nb)/nc * (1. - bfrac)
+    # bf = (nc+nb)/nb * bfrac
     if weighted == True:
         chpt = np.loadtxt('csv/c_pt.csv', delimiter=',')
         bhpt = np.loadtxt('csv/b_pt.csv', delimiter=',')
         cmat /= chpt
         bmat /= bhpt
+    return np.hstack((cf * cmat, bf * bmat))
 
-    return np.hstack(((1. - bfrac) * cmat, bfrac * bmat))
 
-
-def dcamatrix(bfrac, eptbin, weighted=True):
-    cfile = 'csv/c_to_dca_{}.csv'.format(eptbin)
-    bfile = 'csv/b_to_dca_{}.csv'.format(eptbin)
+def dcamatrix(bfrac, dca_ept_bin, weighted=True):
+    cfile = 'csv/c_to_dca_{}.csv'.format(dca_ept_bin)
+    bfile = 'csv/b_to_dca_{}.csv'.format(dca_ept_bin)
     cmat = np.loadtxt(cfile, delimiter=',')
     bmat = np.loadtxt(bfile, delimiter=',')
+    # nc,nb = np.sum(cmat), np.sum(bmat)
+    cf = (1. - bfrac)
+    bf = bfrac
     if weighted == True:
         chpt = np.loadtxt('csv/c_pt.csv', delimiter=',')
         bhpt = np.loadtxt('csv/b_pt.csv', delimiter=',')
         cmat /= chpt
         bmat /= bhpt
+    return np.hstack((cf * cmat, bf * bmat))
+    # return np.hstack(((1. - bfrac) * cmat, bfrac * bmat))
 
-    return np.hstack(((1. - bfrac) * cmat, bfrac * bmat))
+
+def eptdata(data_type):
+    '''
+    Return 1-D numpy array of electron spectra.
+    data_type can be 'AuAu200MB' or 'pp200'.
+    TODO: 'MC' could be added in the future.
+    '''
+    hname = ''
+    if data_type == 'AuAu200MB':
+        hname = 'hEptMB'
+    elif data_type == 'pp200':
+        hname = 'hEptPP'
+    else:
+        print('Error: data_type "{}" not recognized'.format(data_type))
+        return
+    f = TFile('rootfiles/ppg077spectra.root')
+    h = f.Get(hname)
+    return h2a(h)
+
+
+def dcadata(dca_ept_bin, data_type, incl_or_bkg='incl'):
+    '''
+    Return 1-D numpy array of electron DCA yields.
+    data_type can be 'AuAu200MB' or 'pp200'.
+    incl_or_bkg can be 'bkg' or anything.
+    TODO: 'MC' could be added in the future.
+    '''
+    sb = 'bkg' if incl_or_bkg == 'bkg' else 'dca'
+    hname = ''
+    if data_type == 'AuAu200MB':
+        hname = 'qm12MB{}{}'.format(sb, dca_ept_bin)
+    elif data_type == 'pp200':
+        hname = 'qm12PP{}{}'.format(sb, dca_ept_bin)
+    else:
+        print('Error: data_type "{}" not recognized'.format(data_type))
+        return
+    f = TFile('rootfiles/ppg077spectra.root')
+    h = f.Get(hname)
+    return h2a(h)
 
 
 if __name__ == '__main__':
