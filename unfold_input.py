@@ -1,6 +1,7 @@
 import numpy as np
 from ROOT import TFile, TH1, TH2D, TCanvas, gStyle
 from h2np import h2a
+import ppg077data
 
 # Bin edge arrays
 dcaeptbins = np.array((1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0))
@@ -175,21 +176,33 @@ def dcamatrix(bfrac, dca_ept_bin, weighted=True):
 
 def eptdata(data_type):
     '''
-    Return 1-D numpy array of electron spectra.
+    Return 2-D numpy array of electron spectra.
+    Column 0 contains data, column 1 contains stat error.
     data_type can be 'AuAu200MB' or 'pp200'.
     TODO: 'MC' could be added in the future.
     '''
-    hname = ''
+    d = ppg077data
     if data_type == 'AuAu200MB':
-        hname = 'hEptMB'
+        pts = d.yinv_mb[7:]
+        stat_err = 0.5*(d.statlo_mb[7:]+ d.stathi_mb[7:])
+        syst_err = 0.5*(d.syslo_mb[7:] + d.syshi_mb[7:])
+        err = np.sqrt(stat_err * syst_err)
+
+        # Multiply by bin width
+        pts *= np.diff(d.eptbins[7:])
+        err *= np.diff(d.eptbins[7:])
+        return np.vstack((pts,stat_err)).T
     elif data_type == 'pp200':
-        hname = 'hEptPP'
+        pts = d.xsec_pp[7:]
+        err = np.sqrt(d.stat_pp[7:]*d.stat_pp[7:] + d.syst_pp[7:]*d.syst_pp[7:])
+
+        # Multiply by bin width
+        pts *= np.diff(d.eptbins[7:])
+        err *= np.diff(d.eptbins[7:])
+        return np.vstack((pts,err)).T
     else:
         print('Error: data_type "{}" not recognized'.format(data_type))
         return
-    f = TFile('rootfiles/ppg077spectra.root')
-    h = f.Get(hname)
-    return h2a(h)
 
 
 def dcadata(dca_ept_bin, data_type, incl_or_bkg='incl'):
