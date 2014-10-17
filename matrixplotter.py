@@ -8,7 +8,7 @@ from matplotlib.colors import LogNorm
 def mmplot(mat, x, y, xbins, ybins, 
            figsize=(8,8), 
            figname='pdfs/noname.pdf',
-           desc='',
+           desc=[''],
            xlabel='columns',
            ylabel='rows'):
     '''
@@ -24,10 +24,10 @@ def mmplot(mat, x, y, xbins, ybins,
 
     fig = plt.figure(1, figsize=figsize)
     ax_joint = plt.axes([left, bottom, width, height])
-    ax_margx = plt.axes([left, bottom_h, width, 0.2] )
-    ax_margy = plt.axes([left_h, bottom, 0.2, height])
+    ax_margx = plt.axes([left, bottom_h, width, 0.2] ) # Top panel
+    ax_margy = plt.axes([left_h, bottom, 0.2, height]) # RHS panel
 
-    # no labels
+    # No labels on "bottom" axes of marginal panels
     nullfmt = NullFormatter()
     ax_margx.xaxis.set_major_formatter(nullfmt)
     ax_margy.yaxis.set_major_formatter(nullfmt)
@@ -42,12 +42,23 @@ def mmplot(mat, x, y, xbins, ybins,
     ax_joint.set_xlabel(xlabel)
     ax_joint.set_ylabel(ylabel)
 
+     # Deal with buggy MPL limit handling
+    ax_joint.set_xlim(xbins[0],xbins[-1])
+    ax_joint.set_ylim(ybins[0],ybins[-1])
+
+    ax_margx.hist(x, bins=xbins, histtype='step', color='gray', lw=2, 
+                  weights=np.sum(mat, axis=0))
+    ax_margy.hist(y, bins=ybins, histtype='step', color='gray', lw=2, 
+                  weights=np.sum(mat, axis=1), orientation='horizontal')
     ax_margx.set_yscale('log')
     ax_margy.set_xscale('log')
 
-    ax_margx.hist(x, bins=xbins, histtype='step', color='gray', lw=2, weights=np.sum(mat, axis=0))
-    ax_margy.hist(y, bins=ybins, histtype='step', color='gray', lw=2, weights=np.sum(mat, axis=1), orientation='horizontal')
+    # Set abcissa limits
+    ax_margx.set_xlim(xbins[0],xbins[-1])
+    ax_margy.set_ylim(ybins[0],ybins[-1])
     
-    fig.text(0.76, 0.9, desc)
+    # Add description in upper right space. Each list item is a new line.
+    for i,d in enumerate(desc):
+        fig.text(0.76, 0.95 - i*0.05, d)
 
     plt.savefig(figname)
