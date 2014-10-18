@@ -7,29 +7,33 @@ import ppg077data
 dcaeptbins = np.array((1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0))
 eptbins = np.array([1, 1.2, 1.4, 1.6, 1.8, 2, 2.2, 2.4, 2.6, 2.8, 3,
                     3.2, 3.4, 3.6, 3.8, 4, 4.5, 5, 6, 7, 8, 9])
-dptbins = np.array([0., 1, 2, 3, 4, 5, 7, 9, 12, 15, 20])
-bptbins = dptbins
-hptbins = np.hstack((dptbins[:-1], dptbins[-1] + bptbins))
+cptbins = np.array([0., 1, 2, 3, 4, 5, 7, 9, 12, 15, 20])
+bptbins = cptbins
+hptbins = np.hstack((cptbins[:-1], cptbins[-1] + bptbins))
 dcabins = np.linspace(-0.2, 0.2, 101)
 
 # Bin width arrays
 eptw = np.diff(eptbins)
-dptw = np.diff(dptbins)
+cptw = np.diff(cptbins)
 bptw = np.diff(bptbins)
 hptw = np.diff(hptbins)
 dcaw = np.diff(dcabins)
 
 # Bin center arrays
 eptx = eptbins[:-1] + eptw / 2
-dptx = dptbins[:-1] + dptw / 2
+cptx = cptbins[:-1] + cptw / 2
 bptx = bptbins[:-1] + bptw / 2
 hptx = hptbins[:-1] + hptw / 2
 dcax = dcabins[:-1] + dcaw / 2
 
 # Number of "dimensions" = free parameters = bins in unfolding result
-ndim = len(hptx)
-ncpt = len(dptx)
+ncpt = len(cptx)
 nbpt = len(bptx)
+nhpt = len(hptx)
+
+# Indices of c or b hadron points within concatenated array
+idx = {'c' : np.arange(0, ncpt), 'b' : np.arange(ncpt, ncpt + nbpt)}
+
 
 def project_and_save(draw=False):
     '''
@@ -46,7 +50,7 @@ def project_and_save(draw=False):
     cb = ['c', 'b']
     gStyle.SetOptStat(0)
     for i, h in enumerate(hcb):
-        hbins = dptbins if i == 0 else bptbins
+        hbins = cptbins if i == 0 else bptbins
 
         # Rebin inclusive generated hadron pt histogram and write to csv.
         # This is used for weighting of the decay matrices.

@@ -1,5 +1,7 @@
 import numpy as np
 from scipy.special import gammaln
+import unfold_input as ui
+
 
 def lngamma(x, a, b):
     '''
@@ -24,9 +26,10 @@ def lngauss(x, mu, prec):
     '''
     Log likelihood for multivariate Gaussian N(x | mu, prec)
     where prec is the inverse covariance matrix.
+    Neglecting terms that don't depend on x.
     '''
     diff = x - mu
-    return -np.dot(diff, np.dot(prec, diff)) / 2.
+    return -0.5 * np.dot(diff, np.dot(prec, diff))
 
 
 def lnuniform(x, xref, alpha):
@@ -90,7 +93,8 @@ def gamma_poisson(x, A, b, icov_data, x_prior, gamma_a, gamma_b):
     return lngamma(x, gamma_a, gamma_b) + lnpoiss(b, np.dot(A, x))
 
 
-def gaussian_gaussian(x, A, b, icov_data, x_prior, icov_prior, alpha, xmin, xmax, L=None):
+def gaussian_gaussian(x, A, b, icov_data, x_prior, icov_prior, alpha, 
+                      xmin, xmax, L=None):
     '''
     Gaussian prior; Gaussian likelihood
     '''
@@ -100,19 +104,28 @@ def gaussian_gaussian(x, A, b, icov_data, x_prior, icov_prior, alpha, xmin, xmax
     return lngauss(x, x_prior, icov_prior) + lngauss(b, np.dot(A, x), icov_data)
 
 
-def l2_gaussian(x, A, b, icov_data, x_prior, alpha, xlim, L=None):
+def l2_gaussian(x, A, data, icov_data, x_prior, alpha, xlim, L=None):
     '''
     L2 regularization; Gaussian likelihood
+    x: trial solution
+    A: matrix mapping x -> prediction
+    data: measurements for prediction to be compared against. 
     '''
-    if np.any(x < xlim[:,0]) or np.any(x > xlim[:,1]):
+    if np.any(x < xlim[:, 0]) or np.any(x > xlim[:, 1]):
         return -np.inf
 
-    xr = x / x_prior
-    if L is not None:
-        xr = np.dot(L, xr)
+    f = x[-1]
+    c, b = ui.idx['c'], ui.idx['b']
 
-    ll  = lngauss(b, np.dot(A, x), icov_data)
-    reg = -alpha * alpha * np.dot(xr, xr)
+    # Log likelihood
+    prediction = (1 - f) * np.dot(A[:,c], x[c]) + f * np.dot(A[:,b], x[b])
+    ll = lngauss(data, prediction, icov_data)
+
+    # Regularization
+    rc, rb = x[c]/x_prior[c], x[b]/x_prior[b]
+    if L is not None:
+        rc, rb = np.dot(L[:,c], rc), np.dot(L[:,b], rb)
+    reg = -alpha * alpha * (np.dot(rc, rc) + np.dot(rb, rb))
 
     return ll + reg
 
@@ -145,7 +158,7 @@ def l2_poisson_shape(x, Alist, blist, x_prior, alpha, xmin, xmax, L=None):
     # Make a 2-vector with c-hadron and b-hadron integrated yields from x.
     # ndim = x.shape[0]
     # xint = np.array([np.sum(x[:ndim/2]), np.sum(x[ndim/2:ndim])])
-    
+
     result = 0.0
     for A, b in zip(Alist, blist):
         if np.any(x < xmin) or np.any(x > xmax):
@@ -175,9 +188,9 @@ def l2_poisson_combined(x, Alist, blist, x_prior, alpha, xmin, xmax, L=None):
                         x_prior, alpha, xmin, xmax, L)
     ll_dca = 0.
     if (ll_ept > -np.inf):
-        ll_dca = l2_poisson_shape(x, Alist[1:], blist[1:], 
+        ll_dca = l2_poisson_shape(x, Alist[1:], blist[1:],
                                   x_prior, alpha, xmin, xmax, L)
-    return ll_ept + 1e-3*ll_dca
+    return ll_ept + 1e-3 * ll_dca
 
 
 if __name__ == '__main__':

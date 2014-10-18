@@ -34,11 +34,10 @@ def plot_ept(ept_mb, ept_pp, ept_py, figname='ept-comparison.pdf'):
 def plot_result(ylims, p0, gpt, pq, figname='hpt.pdf'):
     print("Drawing results...")
     fig, axes = plt.subplots(1, 2)
-    ptx = ui.hptx[:ui.ndim / 2]
-    for ax in axes:
-        cb = 'c' if ax == axes[0] else 'b'
-        r = range(
-            ui.ndim / 2) if ax == axes[0] else range(ui.ndim / 2, ui.ndim)
+    for i,ax in enumerate(axes):
+        ptx = ui.cptx if i == 0 else ui.bptx
+        cb = 'c' if i == 0 else 'b'
+        r = ui.idx[cb]
         w = ui.hptw[r]
         ax.set_yscale('log')
         ax.set_xlabel(r'{} hadron $p_T$ [GeV/c]'.format(cb))
@@ -57,7 +56,6 @@ def plot_result(ylims, p0, gpt, pq, figname='hpt.pdf'):
 
 def plot_post_marg(chain, figname='posterior.pdf'):
     # Draw posterior marginal distributions
-    # sample.chain has shape (nwalkers, nsteps, ndim)
     print("Marginalizing posterior distribution for summary plot...")
     nr, nc = 4, 5
     fig, axes = plt.subplots(nr, nc)
@@ -65,7 +63,7 @@ def plot_post_marg(chain, figname='posterior.pdf'):
         for col in range(nc):
             i = nc * row + col
             a = axes[row, col]
-            fc = 'yellow' if i < ui.ndim / 2 else 'lime'
+            fc = 'yellow' if i < ui.ncpt else 'lime'
             a.hist(chain[:, i], 100,
                    color='k', facecolor=fc, histtype='stepfilled')
             a.tick_params(axis='x', top='off', labelsize=4)
@@ -75,7 +73,7 @@ def plot_post_marg(chain, figname='posterior.pdf'):
             s = r'{0:.0f}-{1:.0f} GeV/c'.format(
                 ui.hptbins[i % 10], ui.hptbins[i % 10 + 1])
             a.text(0.6, 0.9, s, fontsize=5, transform=a.transAxes)
-            if i < ui.ndim / 2:
+            if i < ui.ncpt:
                 a.text(0.05, 0.9, r'$h_{charm}$',
                        fontsize=5, transform=a.transAxes)
             else:
