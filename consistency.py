@@ -19,7 +19,7 @@ dcamat = [ui.dcamatrix(bfrac, i, False) for i in range(6)]
 eptmatw = ui.eptmatrix(bfrac, True)
 dcamatw = [ui.dcamatrix(bfrac, i, True) for i in range(6)]
 # Generated inclusive hadron pt and ideal data for consistency check
-gpt = ui.genpt(bfrac)
+gpt = ui.genpt()
 hpt_ideal = eptmat.sum(axis=0)
 ept_ideal = eptmat.sum(axis=1)
 dca_ideal = [m.sum(axis=1) for m in dcamat]
