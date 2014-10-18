@@ -28,7 +28,8 @@ dcax = dcabins[:-1] + dcaw / 2
 
 # Number of "dimensions" = free parameters = bins in unfolding result
 ndim = len(hptx)
-
+ncpt = len(dptx)
+nbpt = len(bptx)
 
 def project_and_save(draw=False):
     '''
@@ -135,26 +136,32 @@ def h2a_rebin2d(h, newxbins, newybins, eps=1e-6):
     return a
 
 
-def genpt(bfrac):
+def genpt():
     chpt = np.loadtxt('csv/c_pt.csv', delimiter=',')
     bhpt = np.loadtxt('csv/b_pt.csv', delimiter=',')
     return np.hstack((chpt, bhpt))
 
 
-def eptmatrix(bfrac, weighted=True):
+def eptmatrix():
     cmat = np.loadtxt('csv/c_to_ept.csv', delimiter=',')
     bmat = np.loadtxt('csv/b_to_ept.csv', delimiter=',')
-    # nc,nb = np.sum(cmat), np.sum(bmat)
-    cf = (1. - bfrac)
-    bf = bfrac
-    # cf = (nc+nb)/nc * (1. - bfrac)
-    # bf = (nc+nb)/nb * bfrac
-    if weighted == True:
-        chpt = np.loadtxt('csv/c_pt.csv', delimiter=',')
-        bhpt = np.loadtxt('csv/b_pt.csv', delimiter=',')
-        cmat /= chpt
-        bmat /= bhpt
-    return np.hstack((cf * cmat, bf * bmat))
+    chpt = np.loadtxt('csv/c_pt.csv', delimiter=',')
+    bhpt = np.loadtxt('csv/b_pt.csv', delimiter=',')
+    cmat /= chpt
+    bmat /= bhpt
+    return np.hstack((cmat, bmat))
+
+# def eptmatrix(bfrac, weighted=True):
+#     cmat = np.loadtxt('csv/c_to_ept.csv', delimiter=',')
+#     bmat = np.loadtxt('csv/b_to_ept.csv', delimiter=',')
+#     cf = (1. - bfrac)
+#     bf = bfrac
+#     if weighted == True:
+#         chpt = np.loadtxt('csv/c_pt.csv', delimiter=',')
+#         bhpt = np.loadtxt('csv/b_pt.csv', delimiter=',')
+#         cmat /= chpt
+#         bmat /= bhpt
+#     return np.hstack((cf * cmat, bf * bmat))
 
 
 def dcamatrix(bfrac, dca_ept_bin, weighted=True):
@@ -162,7 +169,6 @@ def dcamatrix(bfrac, dca_ept_bin, weighted=True):
     bfile = 'csv/b_to_dca_{}.csv'.format(dca_ept_bin)
     cmat = np.loadtxt(cfile, delimiter=',')
     bmat = np.loadtxt(bfile, delimiter=',')
-    # nc,nb = np.sum(cmat), np.sum(bmat)
     cf = (1. - bfrac)
     bf = bfrac
     if weighted == True:
@@ -171,7 +177,33 @@ def dcamatrix(bfrac, dca_ept_bin, weighted=True):
         cmat /= chpt
         bmat /= bhpt
     return np.hstack((cf * cmat, bf * bmat))
-    # return np.hstack(((1. - bfrac) * cmat, bfrac * bmat))
+
+
+def ept_proj(bfrac):
+    '''
+    Returns a projection from the unweighted decay matrix.
+    Useful for unfolding tests on a fully self-consistent system.
+    '''
+    cmat = np.loadtxt('csv/c_to_ept.csv', delimiter=',')
+    bmat = np.loadtxt('csv/b_to_ept.csv', delimiter=',')
+    m = np.hstack(((1. - bfrac) * cmat, bfrac * bmat))
+    ept_py = m.sum(axis=1)
+    # Add error column.
+    ept_py = np.vstack((ept_py, np.sqrt(ept_py))).T
+    return ept_py
+
+
+def dca_proj(dca_ept_bin, bfrac):
+    '''
+    Returns a projection from the unweighted decay matrix.
+    Useful for unfolding tests on a fully self-consistent system.
+    '''
+    cfile = 'csv/c_to_dca_{}.csv'.format(dca_ept_bin)
+    bfile = 'csv/b_to_dca_{}.csv'.format(dca_ept_bin)
+    cmat = np.loadtxt(cfile, delimiter=',')
+    bmat = np.loadtxt(bfile, delimiter=',')
+    m = np.hstack(((1. - bfrac) * cmat, bfrac * bmat))
+    return m.sum(axis=1)
 
 
 def eptdata(data_type):
@@ -179,7 +211,6 @@ def eptdata(data_type):
     Return 2-D numpy array of electron spectra.
     Column 0 contains data, column 1 contains stat error.
     data_type can be 'AuAu200MB' or 'pp200'.
-    TODO: 'MC' could be added in the future.
     '''
     d = ppg077data
     if data_type == 'AuAu200MB':
@@ -192,6 +223,7 @@ def eptdata(data_type):
         pts *= np.diff(d.eptbins[7:])
         err *= np.diff(d.eptbins[7:])
         return np.vstack((pts,stat_err)).T
+
     elif data_type == 'pp200':
         pts = d.xsec_pp[7:]
         err = np.sqrt(d.stat_pp[7:]*d.stat_pp[7:] + d.syst_pp[7:]*d.syst_pp[7:])
@@ -200,6 +232,7 @@ def eptdata(data_type):
         pts *= np.diff(d.eptbins[7:])
         err *= np.diff(d.eptbins[7:])
         return np.vstack((pts,err)).T
+
     else:
         print('Error: data_type "{}" not recognized'.format(data_type))
         return

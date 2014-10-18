@@ -15,7 +15,7 @@ def plot_ept(ept_mb, ept_pp, ept_py, figname='ept-comparison.pdf'):
     ax.set_xlabel(r'$e^{\pm}$ $p_T$ [GeV/c]')
 
     # PYTHIA model ept
-    ax.errorbar(ui.eptx, ept_py / ui.eptw, yerr=np.sqrt(ept_py),
+    ax.errorbar(ui.eptx, ept_py[:,0] / ui.eptw, yerr=ept_py[:, 1],
                 lw=2, ls='*', marker='o', ms=10, color='white',
                 label=r'PYTHIA HF $e^{\pm}$ $p_T$')
 
@@ -31,7 +31,7 @@ def plot_ept(ept_mb, ept_pp, ept_py, figname='ept-comparison.pdf'):
     return
 
 # Draw prior, walkers, initial guess, and result.
-def plot_result(ymin, ymax, p0, gpt, pq, figname='hpt.pdf'):
+def plot_result(ylims, p0, gpt, pq, figname='hpt.pdf'):
     print("Drawing results...")
     fig, axes = plt.subplots(1, 2)
     ptx = ui.hptx[:ui.ndim / 2]
@@ -43,7 +43,7 @@ def plot_result(ymin, ymax, p0, gpt, pq, figname='hpt.pdf'):
         ax.set_yscale('log')
         ax.set_xlabel(r'{} hadron $p_T$ [GeV/c]'.format(cb))
         ax.fill_between(
-            ptx, ymin[r] / w, ymax[r] / w, color='slategray', alpha=0.1)
+            ptx, ylims[r,0] / w, ylims[r,1] / w, color='slategray', alpha=0.1)
         for i in range(p0.shape[0]):
             ax.plot(ptx, p0[i, r] / w, ls='*', marker='s',
                     ms=14, color='deepskyblue', alpha=0.01)
@@ -91,7 +91,7 @@ def plot_lnprob(lnp, figname='lnprob.pdf'):
     ax.set_ylabel('samples')
     ax.hist(
         lnp, 100, color='k', facecolor='lightyellow', histtype='stepfilled')
-    ax.text(0.05, 0.95, r'mean, std dev: {0:.2f}, {1:.2f}'
+    ax.text(0.05, 0.95, r'mean, std dev: {:.3g}, {:.3g}'
             .format(np.mean(lnp), np.std(lnp)), transform=ax.transAxes)
     fig.savefig(figname)
 

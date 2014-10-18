@@ -1,7 +1,6 @@
 import numpy as np
 from scipy.special import gammaln
 
-
 def lngamma(x, a, b):
     '''
     Log likelihood for Gamma(x|a,b) where mean = a/b and var = a/b**2.
@@ -91,11 +90,31 @@ def gamma_poisson(x, A, b, icov_data, x_prior, gamma_a, gamma_b):
     return lngamma(x, gamma_a, gamma_b) + lnpoiss(b, np.dot(A, x))
 
 
-def gaussian_gaussian(x, A, b, icov_data, x_prior, icov_prior):
+def gaussian_gaussian(x, A, b, icov_data, x_prior, icov_prior, alpha, xmin, xmax, L=None):
     '''
     Gaussian prior; Gaussian likelihood
     '''
+    if np.any(x < xmin) or np.any(x > xmax):
+        return -np.inf
+
     return lngauss(x, x_prior, icov_prior) + lngauss(b, np.dot(A, x), icov_data)
+
+
+def l2_gaussian(x, A, b, icov_data, x_prior, alpha, xlim, L=None):
+    '''
+    L2 regularization; Gaussian likelihood
+    '''
+    if np.any(x < xlim[:,0]) or np.any(x > xlim[:,1]):
+        return -np.inf
+
+    xr = x / x_prior
+    if L is not None:
+        xr = np.dot(L, xr)
+
+    ll  = lngauss(b, np.dot(A, x), icov_data)
+    reg = -alpha * alpha * np.dot(xr, xr)
+
+    return ll + reg
 
 
 def l2_poisson(x, A, b, x_prior, alpha, xmin, xmax, L=None):
@@ -156,8 +175,9 @@ def l2_poisson_combined(x, Alist, blist, x_prior, alpha, xmin, xmax, L=None):
                         x_prior, alpha, xmin, xmax, L)
     ll_dca = 0.
     if (ll_ept > -np.inf):
-        ll_dca = l2_poisson_shape(x, Alist[1:], blist[1:], x_prior, alpha, xmin, xmax, L)
-    return ll_ept + 1e-13*ll_dca
+        ll_dca = l2_poisson_shape(x, Alist[1:], blist[1:], 
+                                  x_prior, alpha, xmin, xmax, L)
+    return ll_ept + 1e-3*ll_dca
 
 
 if __name__ == '__main__':
