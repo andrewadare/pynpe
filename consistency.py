@@ -12,75 +12,82 @@ import unfold_input as ui
 import plotting_functions as pf
 
 bfrac = 0.007
-# Unweighted matrices - matrix elements contain counts
-eptmat = ui.eptmatrix(bfrac, False)
-dcamat = [ui.dcamatrix(bfrac, i, False) for i in range(6)]
-# Weighted matrices - elements are joint probabilities
-eptmatw = ui.eptmatrix(bfrac, True)
-dcamatw = [ui.dcamatrix(bfrac, i, True) for i in range(6)]
+# Decay matrices - elements are joint probabilities
+eptmat = ui.eptmatrix()
+dcamat = [ui.dcamatrix(i) for i in range(6)]
+
 # Generated inclusive hadron pt and ideal data for consistency check
 gpt = ui.genpt()
-hpt_ideal = eptmat.sum(axis=0)
-ept_ideal = eptmat.sum(axis=1)
-dca_ideal = [m.sum(axis=1) for m in dcamat]
-ept_err = np.sqrt(ept_ideal)  # Whatever
+ept_ideal = ui.eptmat_proj(bfrac, axis=1)
+dca_ideal = [ui.dcamat_proj(i, bfrac, axis=1) for i in range(6)]
 
 if True:
-    z = np.zeros(ui.ndim / 2)
+    c, b = ui.idx['c'], ui.idx['b']
+
     # B fraction from electron pt spectra
-    bfold_ept = np.dot(eptmatw, np.hstack([z, gpt[ui.ndim / 2:]]))
-    hfold_ept = np.dot(eptmatw, gpt)
+    cfold_ept = (1 - bfrac) * np.dot(eptmat[:, c], gpt[c])
+    bfold_ept = bfrac * np.dot(eptmat[:, b], gpt[b])
+    hfold_ept = cfold_ept + bfold_ept
     bfrac_ept = bfold_ept / hfold_ept
     # B fraction from DCA distributions at different pt values
-    hfold_dca = [np.dot(m, gpt) for m in dcamatw]
-    cfold_dca = [np.dot(m, np.hstack([gpt[:ui.ndim / 2], z])) for m in dcamatw]
-    bfold_dca = [np.dot(m, np.hstack([z, gpt[ui.ndim / 2:]])) for m in dcamatw]
-    bfrac_dca = np.array([np.sum(b) / np.sum(h)
-                          for b, h in zip(bfold_dca, hfold_dca)])
+    cfold_dca = [(1 - bfrac) * np.dot(m[:, c], gpt[c]) for m in dcamat]
+    bfold_dca = [bfrac * np.dot(m[:, b], gpt[b]) for m in dcamat]
+    hfold_dca = [cd+bd for cd, bd in zip(cfold_dca, bfold_dca)]
+    bfrac_dca = np.array([np.sum(bd) / np.sum(hd)
+                          for bd, hd in zip(bfold_dca, hfold_dca)])
     pf.plotbfrac(bfrac_ept, bfrac_dca, 'pdfs/bfrac-fold.pdf')
 
 if True:
-    z = np.zeros(ui.ndim / 2)
-    hfold = [np.dot(m, gpt) for m in dcamatw]
-    cfold = [np.dot(m, np.hstack([gpt[:ui.ndim / 2], z])) for m in dcamatw]
-    bfold = [np.dot(m, np.hstack([z, gpt[ui.ndim / 2:]])) for m in dcamatw]
+    c, b = ui.idx['c'], ui.idx['b']
+    cfold = [(1 - bfrac) * np.dot(m[:, c], gpt[c]) for m in dcamat]
+    bfold = [bfrac * np.dot(m[:, b], gpt[b]) for m in dcamat]
+    hfold = cfold + bfold
     pf.plotdca_fold(dca_ideal, cfold, bfold, hfold, 'pdfs/dca-fold.pdf')
 
 if True:
-    hptd = [m.sum(axis=0) for m in dcamat]
-    pf.plothpt(gpt, hpt_ideal, hptd, 'pdfs/hpt-gen.pdf')
+    hpt_ideal = ui.eptmat_proj(bfrac, axis=0)
+    hptd = [ui.dcamat_proj(i, bfrac, axis=0) for i in range(6)]
+    pf.plothpt(gpt, hpt_ideal[:, 0], hptd, 'pdfs/hpt-gen.pdf')
 
 if True:
-    z = np.zeros(ui.ndim / 2)
-    cept = eptmat[:, :ui.ndim / 2].sum(axis=1)
-    bept = eptmat[:, ui.ndim / 2:].sum(axis=1)
-    cfold = np.dot(eptmatw, np.hstack([gpt[:ui.ndim / 2], z]))
-    bfold = np.dot(eptmatw, np.hstack([z, gpt[ui.ndim / 2:]]))
-    hfold = np.dot(eptmatw, gpt)
-    pf.plotept_fold(ept_ideal, ept_err, cept, bept, cfold, bfold, hfold,
+    c, b = ui.idx['c'], ui.idx['b']
+    m = ui.eptmatrix(weighted=False)
+    cept = (1-bfrac)*m[:,c].sum(axis=1)
+    bept = bfrac*m[:,b].sum(axis=1)
+    cfold = (1 - bfrac) * np.dot(eptmat[:, c], gpt[c])
+    bfold = bfrac * np.dot(eptmat[:, b], gpt[b])
+    hfold = cfold_ept + bfold_ept
+    pf.plotept_fold(ept_ideal, cept, bept, cfold, bfold, hfold,
                     'pdfs/ept-fold.pdf')
 
 if True:
-    xl = r'c hadron $p_T$ [GeV/c] $\qquad$ b hadron $p_T$ [GeV/c]'
-    # Plot hpt -> ept matrices (unweighted and weighted)
-    for mat, w in zip([eptmat,eptmatw],['counts','probs']):
-        print "ept mmplot()", w
-        mmplot(mat, ui.hptx, ui.eptx, ui.hptbins, ui.eptbins,
-               xlabel=xl,
-               ylabel=r'$e^{\pm}$ $p_T$ [GeV/c]',
-               desc=[r'$h_{c,b}\, p_T\, \to\, e^{\pm}\, p_T$'],
-               figname='pdfs/eptmat_' + w + '.pdf')
+    c, b = ui.idx['c'], ui.idx['b']
+    # Plot hpt -> ept matrices
+    mmplot(eptmat[:,c], ui.cptx, ui.eptx, ui.cptbins, ui.eptbins,
+           xlabel=r'c hadron $p_T$ [GeV/c]',
+           ylabel=r'$e^{\pm}$ $p_T$ [GeV/c]',
+           desc=[r'$h_{c}\, p_T\, \to\, e^{\pm}\, p_T$'],
+           figname='pdfs/eptmat_' + 'c' + '.pdf')
+    mmplot(eptmat[:,b], ui.bptx, ui.eptx, ui.bptbins, ui.eptbins,
+           xlabel=r'b hadron $p_T$ [GeV/c]',
+           ylabel=r'$e^{\pm}$ $p_T$ [GeV/c]',
+           desc=[r'$h_{b}\, p_T\, \to\, e^{\pm}\, p_T$'],
+           figname='pdfs/eptmat_' + 'b' + '.pdf')
+
     # Plot hpt -> dca,ept matrices (unweighted and weighted)
-    for mat, w in zip([dcamat,dcamatw],['counts','probs']):
-        for i, m in enumerate(mat):
-            print "DCA mmplot()", w, i
+    for cb in ['c','b']:
+        for i,m in enumerate(dcamat):
+            print "DCA mmplot()", cb, i
             pt = (ui.dcaeptbins[i], ui.dcaeptbins[i + 1])
-            desc1 = r'$h_{c,b}\, p_T\, \to\, e^{\pm}$ DCA'
+            mat = m[:,ui.idx[cb]]
+            x = ui.cptx if i==0 else ui.bptx
+            xbins = ui.cptbins if i==0 else ui.bptbins
+            desc1 = r'$h_{:s}\, p_T\, \to\, e$ DCA'.format(cb)
             desc2 = r'$e\, p_T \in\, [{:.1f},{:.1f}]\, GeV/c$'.format(*pt)
-            mmplot(m, ui.hptx, ui.dcax, ui.hptbins, ui.dcabins,
-                   xlabel=xl,
+            mmplot(mat, x, ui.dcax, xbins, ui.dcabins,
+                   xlabel=r'{:s} hadron $p_T$ [GeV/c]'.format(cb),
                    ylabel=r'$e^{\pm}$ DCA [cm]',
                    desc=[desc1,desc2],
-                   figname='pdfs/dcamat_{}_{}.pdf'.format(w,i))    
+                   figname='pdfs/dcamat_{}_{}.pdf'.format(cb,i))
 
-    # os.system("pdftk pdfs/*.pdf cat output all.pdf")
+# os.system("pdftk pdfs/*.pdf cat output all.pdf")
