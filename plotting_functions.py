@@ -1,9 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
-# import emcee
-# import triangle
-# import lnpmodels
 import unfold_input as ui
 
 
@@ -15,7 +12,7 @@ def plot_ept(ept_mb, ept_pp, ept_py, figname='ept-comparison.pdf'):
     ax.set_xlabel(r'$e^{\pm}$ $p_T$ [GeV/c]')
 
     # PYTHIA model ept
-    ax.errorbar(ui.eptx, ept_py[:,0] / ui.eptw, yerr=ept_py[:, 1],
+    ax.errorbar(ui.eptx, ept_py[:, 0] / ui.eptw, yerr=ept_py[:, 1],
                 lw=2, ls='*', marker='o', ms=10, color='white',
                 label=r'PYTHIA HF $e^{\pm}$ $p_T$')
 
@@ -30,19 +27,21 @@ def plot_ept(ept_mb, ept_pp, ept_py, figname='ept-comparison.pdf'):
     fig.savefig(figname)
     return
 
-# Draw prior, walkers, initial guess, and result.
 def plot_result(ylims, p0, gpt, pq, figname='hpt.pdf'):
+    '''
+    Draw prior, walkers, initial guess, and result.
+    '''
     print("Drawing results...")
     fig, axes = plt.subplots(1, 2)
-    for i,ax in enumerate(axes):
+    for i, ax in enumerate(axes):
         ptx = ui.cptx if i == 0 else ui.bptx
         cb = 'c' if i == 0 else 'b'
         r = ui.idx[cb]
         w = ui.hptw[r]
         ax.set_yscale('log')
         ax.set_xlabel(r'{} hadron $p_T$ [GeV/c]'.format(cb))
-        ax.fill_between(
-            ptx, ylims[r,0] / w, ylims[r,1] / w, color='slategray', alpha=0.1)
+        ax.fill_between(ptx, ylims[r, 0] / w, ylims[r, 1] / w, 
+                        color='slategray', alpha=0.1)
         for i in range(p0.shape[0]):
             ax.plot(ptx, p0[i, r] / w, ls='*', marker='s',
                     ms=14, color='deepskyblue', alpha=0.01)
@@ -51,6 +50,18 @@ def plot_result(ylims, p0, gpt, pq, figname='hpt.pdf'):
         ax.errorbar(ptx, pq[r, 0] / w, yerr=[pq[r, 2] / w, pq[r, 1] / w],
                     ls='*', fmt='o', color='crimson', ecolor='crimson',
                     capthick=2)
+    fig.savefig(figname)
+
+
+def plot_bfrac_samples(samples, quantiles, figname='bfrac_samples.pdf'):
+    print("Plotting log probabilities...")
+    fig, ax = plt.subplots()
+    ax.set_xlabel('Sampled b/(b+c) values')
+    ax.set_ylabel('samples')
+    ax.hist(samples, 100, color='k', facecolor='RosyBrown',
+            alpha=0.5, histtype='stepfilled')
+    ax.text(0.05, 0.95, r'{:.2g} +{:.2g} -{:.2g}'.format(*quantiles),
+            transform=ax.transAxes)
     fig.savefig(figname)
 
 
@@ -108,9 +119,9 @@ def plot_lnp_steps(sampler, nburnin, figname='lnprob_vs_step.pdf'):
     fig.savefig(figname)
 
 
-def plotept_fold(ept, cept, bept, cfold, bfold, hfold, 
+def plotept_fold(ept, cept, bept, cfold, bfold, hfold,
                  figname='ept_fold.pdf'):
-    print("plotept_dist()")
+    print("plotept_fold()")
 
     fig, ax = plt.subplots(figsize=(6, 7))
     ax.set_yscale('log')
@@ -127,7 +138,7 @@ def plotept_fold(ept, cept, bept, cfold, bfold, hfold,
     # ax.errorbar(ui.eptx, eptmod/ui.eptw, yerr=ept_err,
     #             lw=2, ls='*', marker='o', color='k',
     #             label=r'$A_{ept}$*hptmod')
-    ax.errorbar(ui.eptx, ept[:,0] / ui.eptw, yerr=ept[:,1]/ui.eptw,
+    ax.errorbar(ui.eptx, ept[:, 0] / ui.eptw, yerr=ept[:, 1] / ui.eptw,
                 lw=2, ls='*', marker='o', color='white',
                 label=r'$e^{\pm}$ $p_T$ data')
 
@@ -136,6 +147,29 @@ def plotept_fold(ept, cept, bept, cfold, bfold, hfold,
     ax.plot(ui.eptx, bept / ui.eptw, 'o', color='yellow',
             label=r'PYTHIA $b \to e^{\pm}$')
 
+    ax.legend()
+    fig.savefig(figname)
+    return
+
+
+def plotept_refold(ept, cfold, bfold, hfold, figname='ept_refold.pdf'):
+    print("plotept_refold()")
+
+    fig, ax = plt.subplots(figsize=(6, 7))
+    ax.set_yscale('log')
+    ax.set_xlabel(r'$e^{\pm}$ $p_T$ [GeV/c]')
+    ax.errorbar(ui.eptx, hfold[:, 0] / ui.eptw, yerr=hfold[:, 1] / ui.eptw,
+                lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='crimson',
+                label=r'$h_{c+b}$ refold')
+    ax.errorbar(ui.eptx, cfold[:, 0] / ui.eptw, yerr=cfold[:, 1] / ui.eptw,
+                lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='darkorange',
+                label=r'$h_{c}$ refold')
+    ax.errorbar(ui.eptx, bfold[:, 0] / ui.eptw, yerr=bfold[:, 1] / ui.eptw,
+                lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='dodgerblue',
+                label=r'$h_{b}$ refold')
+    ax.errorbar(ui.eptx, ept[:, 0] / ui.eptw, yerr=ept[:, 1] / ui.eptw,
+                lw=2, ls='*', marker='o', color='white',
+                label=r'$e^{\pm}$ $p_T$ data')
     ax.legend()
     fig.savefig(figname)
     return
@@ -171,7 +205,7 @@ def plotdca_fold(dca, cfold, bfold, hfold, figname='dca_fold.pdf'):
 def plothpt(gpt, hpt, hptd, figname='hpt-gen.pdf'):
     print("plothpt()")
     fig, axes = plt.subplots(1, 2, sharey=True)
-    for i,ax in enumerate(axes):
+    for i, ax in enumerate(axes):
         ptx = ui.cptx if i == 0 else ui.bptx
         cb = 'c' if i == 0 else 'b'
         r = ui.idx[cb]
@@ -193,7 +227,7 @@ def plothpt(gpt, hpt, hptd, figname='hpt-gen.pdf'):
 
 def plotbfrac(bfrac_ept, bfrac_dca, figname='bfrac-fold.pdf'):
     print("plotbfrac()")
-    dcaeptx = ui.dcaeptbins[:-1] + 0.4*np.diff(ui.dcaeptbins)
+    dcaeptx = ui.dcaeptbins[:-1] + 0.4 * np.diff(ui.dcaeptbins)
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.set_ylim([0., 1.])
     ax.set_xlabel(r'$e^{\pm}$ $p_T$ [GeV/c]')
