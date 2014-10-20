@@ -146,13 +146,14 @@ def genpt():
     return np.hstack((chpt, bhpt))
 
 
-def eptmatrix():
+def eptmatrix(weighted=True):
     cmat = np.loadtxt('csv/c_to_ept.csv', delimiter=',')
     bmat = np.loadtxt('csv/b_to_ept.csv', delimiter=',')
-    chpt = np.loadtxt('csv/c_pt.csv', delimiter=',')
-    bhpt = np.loadtxt('csv/b_pt.csv', delimiter=',')
-    cmat /= chpt
-    bmat /= bhpt
+    if weighted == True:
+        chpt = np.loadtxt('csv/c_pt.csv', delimiter=',')
+        bhpt = np.loadtxt('csv/b_pt.csv', delimiter=',')
+        cmat /= chpt
+        bmat /= bhpt
     return np.hstack((cmat, bmat))
 
 # def eptmatrix(bfrac, weighted=True):
@@ -168,46 +169,48 @@ def eptmatrix():
 #     return np.hstack((cf * cmat, bf * bmat))
 
 
-def dcamatrix(bfrac, dca_ept_bin, weighted=True):
+def dcamatrix(dca_ept_bin, weighted=True):
     cfile = 'csv/c_to_dca_{}.csv'.format(dca_ept_bin)
     bfile = 'csv/b_to_dca_{}.csv'.format(dca_ept_bin)
     cmat = np.loadtxt(cfile, delimiter=',')
     bmat = np.loadtxt(bfile, delimiter=',')
-    cf = (1. - bfrac)
-    bf = bfrac
     if weighted == True:
         chpt = np.loadtxt('csv/c_pt.csv', delimiter=',')
         bhpt = np.loadtxt('csv/b_pt.csv', delimiter=',')
         cmat /= chpt
         bmat /= bhpt
-    return np.hstack((cf * cmat, bf * bmat))
+    return np.hstack((cmat, bmat))
 
 
-def ept_proj(bfrac):
+def eptmat_proj(bfrac, axis):
     '''
     Returns a projection from the unweighted decay matrix.
     Useful for unfolding tests on a fully self-consistent system.
+    axis 0: hadron pt
+    axis 1: electron pt
     '''
     cmat = np.loadtxt('csv/c_to_ept.csv', delimiter=',')
     bmat = np.loadtxt('csv/b_to_ept.csv', delimiter=',')
     m = np.hstack(((1. - bfrac) * cmat, bfrac * bmat))
-    ept_py = m.sum(axis=1)
+    proj = m.sum(axis)
     # Add error column.
-    ept_py = np.vstack((ept_py, np.sqrt(ept_py))).T
-    return ept_py
+    proj = np.vstack((proj, np.sqrt(proj))).T
+    return proj
 
 
-def dca_proj(dca_ept_bin, bfrac):
+def dcamat_proj(dca_ept_bin, bfrac, axis):
     '''
     Returns a projection from the unweighted decay matrix.
     Useful for unfolding tests on a fully self-consistent system.
+    axis 0: hadron pt
+    axis 1: electron DCA
     '''
     cfile = 'csv/c_to_dca_{}.csv'.format(dca_ept_bin)
     bfile = 'csv/b_to_dca_{}.csv'.format(dca_ept_bin)
     cmat = np.loadtxt(cfile, delimiter=',')
     bmat = np.loadtxt(bfile, delimiter=',')
     m = np.hstack(((1. - bfrac) * cmat, bfrac * bmat))
-    return m.sum(axis=1)
+    return m.sum(axis)
 
 
 def eptdata(data_type):
