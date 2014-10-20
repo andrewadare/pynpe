@@ -25,8 +25,8 @@ ept_mb = ui.eptdata('AuAu200MB')
 ept_pp = ui.eptdata('pp200')
 
 # Model data from pythia - fully self-consistent problem for testing
-ept_py = ui.ept_proj(bfrac)
-dca_py = [ui.dca_proj(i,bfrac) for i in range(6)]
+ept_py = ui.eptmat_proj(bfrac, axis=1)
+dca_py = [ui.dcamat_proj(i, bfrac, axis=1) for i in range(6)]
 
 # Set ept to selected data type
 ept = ept_py if dtype=='MC' else ui.eptdata(dtype)
@@ -52,18 +52,12 @@ print("Initializing {} {}-dim walkers...".format(nwalkers, ndim))
 p0 = np.zeros((nwalkers,ndim))
 p0[:,:-1] = gpt * (1 + 0.1 * np.random.randn(nwalkers, ui.nhpt))
 p0[:,-1]  = bfrac * (1 + 0.1 * np.random.randn(nwalkers))
-print p0.shape
 
 # Parameter limits - shape (ndim,2)
 parlimits = np.vstack((0.01*gpt,2.0*gpt)).T
 parlimits = np.vstack((parlimits,(0.001, 0.02)))
 
 L = np.hstack((lnpmodels.fd2(ui.ncpt), lnpmodels.fd2(ui.nbpt)))
-# c = np.arange(0, ui.ncpt)
-# b = np.arange(ui.ncpt, ui.ncpt+ui.nbpt)
-# print L[:,c]
-# print L[:,b]
-
 fcn = None  # Function returning values \propto posterior probability
 args = None  # Argument list for fcn
 if use_all_data:
