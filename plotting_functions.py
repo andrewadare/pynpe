@@ -108,7 +108,7 @@ def plot_lnp_steps(sampler, nburnin, figname='lnprob_vs_step.pdf'):
     fig.savefig(figname)
 
 
-def plotept_fold(ept, ept_err, cept, bept, cfold, bfold, hfold, 
+def plotept_fold(ept, cept, bept, cfold, bfold, hfold, 
                  figname='ept_fold.pdf'):
     print("plotept_dist()")
 
@@ -127,7 +127,7 @@ def plotept_fold(ept, ept_err, cept, bept, cfold, bfold, hfold,
     # ax.errorbar(ui.eptx, eptmod/ui.eptw, yerr=ept_err,
     #             lw=2, ls='*', marker='o', color='k',
     #             label=r'$A_{ept}$*hptmod')
-    ax.errorbar(ui.eptx, ept / ui.eptw, yerr=ept_err,
+    ax.errorbar(ui.eptx, ept[:,0] / ui.eptw, yerr=ept[:,1]/ui.eptw,
                 lw=2, ls='*', marker='o', color='white',
                 label=r'$e^{\pm}$ $p_T$ data')
 
@@ -171,11 +171,10 @@ def plotdca_fold(dca, cfold, bfold, hfold, figname='dca_fold.pdf'):
 def plothpt(gpt, hpt, hptd, figname='hpt-gen.pdf'):
     print("plothpt()")
     fig, axes = plt.subplots(1, 2, sharey=True)
-    ptx = ui.hptx[:ui.ndim / 2]
-    for ax in axes:
-        cb = 'c' if ax == axes[0] else 'b'
-        r = range(
-            ui.ndim / 2) if ax == axes[0] else range(ui.ndim / 2, ui.ndim)
+    for i,ax in enumerate(axes):
+        ptx = ui.cptx if i == 0 else ui.bptx
+        cb = 'c' if i == 0 else 'b'
+        r = ui.idx[cb]
         w = ui.hptw[r]
         ax.set_yscale('log')
         ax.set_xlabel(r'{} hadron $p_T$ [GeV/c]'.format(cb))
@@ -194,7 +193,7 @@ def plothpt(gpt, hpt, hptd, figname='hpt-gen.pdf'):
 
 def plotbfrac(bfrac_ept, bfrac_dca, figname='bfrac-fold.pdf'):
     print("plotbfrac()")
-    dcaeptx = ui.dcaeptbins[:-1] + np.diff(ui.dcaeptbins) / 2
+    dcaeptx = ui.dcaeptbins[:-1] + 0.4*np.diff(ui.dcaeptbins)
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.set_ylim([0., 1.])
     ax.set_xlabel(r'$e^{\pm}$ $p_T$ [GeV/c]')
