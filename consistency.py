@@ -6,6 +6,7 @@ consistency.py:
 If large inconsistencies are seen, unfolding is unlikely to work.
 '''
 import os
+import sys
 import numpy as np
 from matrixplotter import mmplot
 import unfold_input as ui
@@ -35,8 +36,10 @@ if True:
     hfold_dca = [cd+bd for cd, bd in zip(cfold_dca, bfold_dca)]
     bfrac_dca = np.array([np.sum(bd) / np.sum(hd)
                           for bd, hd in zip(bfold_dca, hfold_dca)])
+    print 'bfrac_ept', bfrac_ept
+    print 'bfrac_dca', bfrac_dca
     pf.plotbfrac(bfrac_ept, bfrac_dca, 'pdfs/bfrac-fold.pdf')
-
+sys.exit(0)
 if True:
     c, b = ui.idx['c'], ui.idx['b']
     cfold = [(1 - bfrac) * np.dot(m[:, c], gpt[c]) for m in dcamat]

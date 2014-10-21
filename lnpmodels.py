@@ -118,6 +118,7 @@ def logp_ept_dca(x, matlist, datalist, dataweights, x_prior, alpha, xlim, L):
     if (lp > -np.inf and dataweights[1] > 0.):
         lp += dataweights[1] * l2_poisson_shape(x, matlist[1:], datalist[1:],
                                                 x_prior, alpha, xlim, L)
+    # print lp
     return lp
 
 
@@ -174,13 +175,13 @@ def l2_poisson_shape(x, matlist, datalist, x_prior, alpha, xlim, L=None):
         # Calculate prediction from this sample vector x
         pred = (1 - f) * np.dot(A[:, c], x[c]) + f * np.dot(A[:, b], x[b])
 
+        # Scale predicted yield to match data signal
+        pred = np.sum(data[:, 0]) / np.sum(pred) * pred
+
         # TODO: pass in background vector and add to prediction:
         # pred += bkg
 
-        # Scale predicted yield to match data and round
-        pred = np.round(np.sum(data[:, 0]) / np.sum(pred) * pred)
-
-        result += lnpoiss(data[:, 0], pred) + l2reg(x, x_prior, alpha, L)
+        result += lnpoiss(data[:, 0], pred) + l2reg(x, x_prior, 10*alpha, L)
         i += 1
 
     return result

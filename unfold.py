@@ -4,13 +4,17 @@ import lnpmodels
 import unfold_input as ui
 import plotting_functions as pf
 
+import sys
 #--------------------------------------------------------------------------
 # Setup/configuration
 #--------------------------------------------------------------------------
 use_all_data = True
 alpha = 0.2
+# nwalkers = 100
+# nburnin = 1
+# nsteps = 10
 nwalkers = 500
-nburnin = 500
+nburnin = 1000
 nsteps = 500
 dtype = 'MC'  # 'AuAu200MB'  # 'pp200' 'MC'
 bfrac = 0.0073
@@ -35,6 +39,31 @@ dca_py = [ui.dcadata_sim(i, bfrac) for i in range(6)]
 ept = ept_py if dtype == 'MC' else ui.eptdata(dtype)
 dca = dca_py if dtype == 'MC' else [ui.dcadata(i, dtype) for i in range(6)]
 
+# Create mask as array of 0's (included) and 1's (masked)
+dcamask = [np.zeros_like(d) for d in dca]
+maskranges_mb = np.array([
+    [0.04, 0.03, -0.15, -0.15, -0.15, -0.15],
+    [0.15, 0.15, -0.02, -0.01, -0.01, -0.01],
+    [9999, 9999, +0.02, +0.01, +0.01, +0.01],
+    [9999, 9999, +0.15, +0.15, +0.15, +0.15]])
+maskranges_pp = np.array([
+    [-0.15, -0.15, -0.15, -0.15, -0.15, -0.15],
+    [-0.01, -0.01, -0.01, -0.01, -0.01, -0.01],
+    [+0.01, +0.01, +0.01, +0.01, +0.01, +0.01],
+    [+0.15, +0.15, +0.15, +0.15, +0.15, +0.15]])
+
+for i in range(6):
+    r = maskranges_pp
+    for j,x in enumerate(ui.dcabins[:-1]):
+        if (x > r[0,i] and x < r[1,i]) or (x > r[2,i] and x < r[3,i]):
+            dcamask[i][j,:] = 0 # Good, keep
+        else:
+            dcamask[i][j,:] = 1 # Bad, mask
+    dca[i] = np.ma.masked_array(dca[i], dcamask[i])
+    #print dca[i]
+
+#sys.exit()
+
 # Generated pythia inclusive hadron pt.
 # Used for MCMC initial point, for regularization, and for comparison to
 # result.
@@ -54,27 +83,33 @@ matlist = [eptmat]
 #--------------------------------------------------------------------------
 # Run sampler
 #--------------------------------------------------------------------------
+# Set parameter limits - put in array with shape (ndim,2)
+hpt_parlimits = np.vstack((0.01 * gpt, 2.0 * gpt)).T
+bfrac_parlimits = np.vstack((1e-6 * np.ones(n_bfrac_pars),
+                             (1. - 1e-6) * np.ones(n_bfrac_pars))).T
+parlimits = np.vstack((hpt_parlimits, bfrac_parlimits))
+
 # Ensemble of starting points for the walkers - shape (nwalkers, ndim)
-print("Initializing {} {}-dim walkers...".format(nwalkers, ndim))
 p0 = np.zeros((nwalkers, ndim))
+print("Initializing {} {}-dim walkers...".format(nwalkers, ndim))
 p0[:, c] = gpt[c] * (1 + 0.1 * np.random.randn(nwalkers, ui.ncpt))
 p0[:, b] = gpt[b] * (1 + 0.1 * np.random.randn(nwalkers, ui.nbpt))
 if use_all_data:
-    p0[:, f] = bfrac * (1 + 0.1 * np.random.randn(nwalkers, ui.nfb))
+    bfrac_prior = np.array(
+        [0.0137, 0.0343, 0.0737, 0.137, 0.246, 0.418, 0.0073])
+    p0[:, f] = bfrac_prior * (1 + 0.001 * np.random.randn(nwalkers, ui.nfb))
 else:
     p0[:, -1] = bfrac * (1 + 0.1 * np.random.randn(nwalkers))
 
-# Parameter limits - shape (ndim,2)
-hpt_parlimits = np.vstack((0.01 * gpt, 2.0 * gpt)).T
-bfrac_parlimits = np.vstack((np.zeros(n_bfrac_pars), np.ones(n_bfrac_pars))).T
-parlimits = np.vstack((hpt_parlimits, bfrac_parlimits))
-
+# Smoothing matrix
 L = np.hstack((lnpmodels.fd2(ui.ncpt), lnpmodels.fd2(ui.nbpt)))
-fcn = None  # Function returning values \propto posterior probability
-args = None  # Argument list for fcn
+
+# Function returning values \propto posterior probability and arg tuple
+fcn, args = None, None
+
 if use_all_data:
     fcn = lnpmodels.logp_ept_dca
-    dataweights = (0.5, 0.5)
+    dataweights = (1. / 21, 1. / 600)
     args = (matlist, datalist, dataweights, gpt, alpha, parlimits, L)
     # fcn = lnpmodels.l2_poisson_combined
     # args = [matlist, datalist, gpt, alpha, ymin, ymax, L]
@@ -126,6 +161,7 @@ pf.plot_lnp_steps(sampler, nburnin, dir + 'lnprob-vs-step.pdf')
 pf.plot_ept(0.1 * ept_mb, ept_pp, ept_py, dir + 'ept-comparison.pdf')
 
 if use_all_data:
+    pf.plotbfrac(pq[f[:-1], :], beptr / heptr, dir + 'bfrac.pdf')
     cfold = []
     bfold = []
     hfold = []

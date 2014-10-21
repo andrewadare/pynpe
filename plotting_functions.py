@@ -190,12 +190,12 @@ def plotdca_fold(dca, cfold, bfold, hfold, figname='dca_fold.pdf'):
             s = r'{0:.1f}-{1:.1f} GeV/c'.format(
                 ui.dcaeptbins[i], ui.dcaeptbins[i + 1])
             a.text(0.55, 0.9, s, fontsize=8, transform=a.transAxes)
-            a.step(ui.dcax, hfold[i], lw=1, alpha=0.8, color='crimson')
+            a.step(ui.dcax, hfold[i], lw=2, alpha=0.8, color='crimson')
             a.step(ui.dcax, cfold[i], lw=1, alpha=0.8, color='darkorange')
             a.step(ui.dcax, bfold[i], lw=1, alpha=0.8, color='dodgerblue')
             if False:
                 a.step(ui.dcax, bkg[i], color='brown')
-            a.step(ui.dcax, dca[i], color='black', alpha=0.6)
+            a.step(ui.dcax, dca[i][:,0], color='black', alpha=0.6)
             if False:
                 a.step(ui.dcax, dcamod[i], color='red', alpha=0.6)
     fig.savefig(figname, bbox_inches='tight')
@@ -225,17 +225,17 @@ def plothpt(gpt, hpt, hptd, figname='hpt-gen.pdf'):
     return
 
 
-def plotbfrac(bfrac_ept, bfrac_dca, figname='bfrac-fold.pdf'):
+def plotbfrac(bfrac_ept, bfrac_dca, figname='bfrac.pdf'):
     print("plotbfrac()")
     dcaeptx = ui.dcaeptbins[:-1] + 0.4 * np.diff(ui.dcaeptbins)
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.set_ylim([0., 1.])
     ax.set_xlabel(r'$e^{\pm}$ $p_T$ [GeV/c]')
     ax.set_ylabel(r'$b \to e / (b \to e + c \to e)$')
-    ax.errorbar(ui.eptx, bfrac_ept,  # yerr= [eptf_lo, eptf_hi],
+    ax.errorbar(ui.eptx, bfrac_ept[:,0], yerr= [bfrac_ept[:,2],bfrac_ept[:,1]],
                 lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='crimson',
                 label=r'$A_{ept}$*bpt / $A_{ept}$*hpt')
-    ax.errorbar(dcaeptx, bfrac_dca,
+    ax.errorbar(dcaeptx, bfrac_dca[:,0], yerr= [bfrac_dca[:,2],bfrac_dca[:,1]],
                 lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='blue',
                 label=r'$A_{dca}$*bpt / $A_{dca}$*hpt')
     ax.legend(loc=2)
