@@ -234,10 +234,27 @@ def plotbfrac(bfrac_ept, bfrac_dca, figname='bfrac.pdf'):
     ax.set_ylabel(r'$b \to e / (b \to e + c \to e)$')
     ax.errorbar(ui.eptx, bfrac_ept[:,0], yerr= [bfrac_ept[:,2],bfrac_ept[:,1]],
                 lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='crimson',
-                label=r'$A_{ept}$*bpt / $A_{ept}$*hpt')
+                label=r'$h_{b}$ refold / $h_{c+b}$ refold')
     ax.errorbar(dcaeptx, bfrac_dca[:,0], yerr= [bfrac_dca[:,2],bfrac_dca[:,1]],
                 lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='blue',
-                label=r'$A_{dca}$*bpt / $A_{dca}$*hpt')
+                label=r'DCA unfold')
     ax.legend(loc=2)
     fig.savefig(figname)
     return
+
+# def plotbfrac(bfrac_ept, bfrac_dca, figname='bfrac.pdf'):
+#     print("plotbfrac()")
+#     dcaeptx = ui.dcaeptbins[:-1] + 0.4 * np.diff(ui.dcaeptbins)
+#     fig, ax = plt.subplots(figsize=(8, 6))
+#     ax.set_ylim([0., 1.])
+#     ax.set_xlabel(r'$e^{\pm}$ $p_T$ [GeV/c]')
+#     ax.set_ylabel(r'$b \to e / (b \to e + c \to e)$')
+#     ax.errorbar(ui.eptx, bfrac_ept[:,0], yerr= [bfrac_ept[:,2],bfrac_ept[:,1]],
+#                 lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='crimson',
+#                 label=r'$A_{ept}$*bpt / $A_{ept}$*hpt')
+#     ax.errorbar(dcaeptx, bfrac_dca[:,0], yerr= [bfrac_dca[:,2],bfrac_dca[:,1]],
+#                 lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='blue',
+#                 label=r'$A_{dca}$*bpt / $A_{dca}$*hpt')
+#     ax.legend(loc=2)
+#     fig.savefig(figname)
+#     return

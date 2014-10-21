@@ -1,18 +1,15 @@
+import os, sys
 import numpy as np
 import emcee
 import lnpmodels
 import unfold_input as ui
 import plotting_functions as pf
 
-import sys
 #--------------------------------------------------------------------------
 # Setup/configuration
 #--------------------------------------------------------------------------
 use_all_data = True
 alpha = 0.2
-# nwalkers = 100
-# nburnin = 1
-# nsteps = 10
 nwalkers = 500
 nburnin = 1000
 nsteps = 500
@@ -21,6 +18,12 @@ bfrac = 0.0073
 n_bfrac_pars = 7 if use_all_data else 1
 ndim = ui.nhpt + n_bfrac_pars
 c, b, f = ui.idx['c'], ui.idx['b'], ui.idx['f']
+
+# Output locations
+pdfdir = 'pdfs/' + dtype
+csvdir = 'csv/' + dtype
+if not os.path.isdir(pdfdir): os.mkdirs(pdfdir)
+if not os.path.isdir(csvdir): os.mkdirs(csvdir)
 
 # Weighted matrices - elements are joint probabilities
 eptmat = ui.eptmatrix()
@@ -137,31 +140,38 @@ samples = sampler.chain.reshape((-1, ndim))
 pq = map(lambda v: (v[1], v[2] - v[1], v[1] - v[0]),
          zip(*np.percentile(samples, [16, 50, 84], axis=0)))
 pq = np.array(pq)
-np.savetxt("csv/pq_{}.csv".format(dtype), pq, delimiter=",")
-print sampler.flatchain.shape, samples.shape
-bfrac_result = pq[-1, :]  # mid,errhi,errlo array
-print 'b/(b+c) fraction: {:.3g} + {:.3g} - {:.3g}'.format(*bfrac_result)
+np.savetxt("{}/pq_{}.csv".format(csvdir, dtype), pq, delimiter=",")
+
+# b fraction unfold pars: rows are output points. cols: mid, errhi, errlo
+# bf_int is integrated over electron pt \in 1-9 GeV/c
+bfracs = pq[f,:]
+bf_int = bfracs[-1, :]
+print 'b/(b+c) fraction: {:.3g} + {:.3g} - {:.3g}'.format(*bf_int)
 
 #--------------------------------------------------------------------------
 # Plot results
 #--------------------------------------------------------------------------
 
 # Refold arrays have shape (neptx, 3). Cols: mid, ehi, elo
-ceptr = (1. - bfrac_result[0]) * np.dot(eptmat[:, c], pq[c, :])
-beptr = bfrac_result[0] * np.dot(eptmat[:, b], pq[b, :])
+ceptr = (1. - bfracs[-1,0]) * np.dot(eptmat[:, c], pq[c, :])
+beptr = bfracs[-1,0] * np.dot(eptmat[:, b], pq[b, :])
 heptr = ceptr + beptr
 
-dir = 'pdfs/test/'
-pf.plot_bfrac_samples(samples[:, -1], bfrac_result, dir + 'bfrac_samples.pdf')
-pf.plotept_refold(ept, ceptr, beptr, heptr, dir + 'ept_refold.pdf')
-pf.plot_result(parlimits[:-1, :], p0[:, :-1], gpt, pq, dir + 'hpt.pdf')
-pf.plot_post_marg(samples[:, :-1], dir + 'posterior.pdf')
-pf.plot_lnprob(sampler.flatlnprobability, dir + 'lnprob.pdf')
-pf.plot_lnp_steps(sampler, nburnin, dir + 'lnprob-vs-step.pdf')
-pf.plot_ept(0.1 * ept_mb, ept_pp, ept_py, dir + 'ept-comparison.pdf')
+pf.plot_bfrac_samples(samples[:, -1], bf_int, pdfdir + 'bfrac_dist.pdf')
+pf.plotept_refold(ept, ceptr, beptr, heptr, pdfdir + 'ept_refold.pdf')
+pf.plot_result(parlimits[:-1, :], p0[:, :-1], gpt, pq, pdfdir + 'hpt.pdf')
+pf.plot_post_marg(samples[:, :-1], pdfdir + 'posterior.pdf')
+pf.plot_lnprob(sampler.flatlnprobability, pdfdir + 'lnprob.pdf')
+pf.plot_lnp_steps(sampler, nburnin, pdfdir + 'lnprob-vs-step.pdf')
+pf.plot_ept(0.1 * ept_mb, ept_pp, ept_py, pdfdir + 'ept-comparison.pdf')
 
 if use_all_data:
-    pf.plotbfrac(pq[f[:-1], :], beptr / heptr, dir + 'bfrac.pdf')
+    bfspec = beptr / heptr
+    bfdca = bfracs[:-1, :]
+    # Estimate error on bfspec - TODO: use something like BayesDivide
+    bfspec[:,1] = beptr[:,1]/heptr[:,0] 
+    bfspec[:,2] = beptr[:,2]/heptr[:,0] 
+    pf.plotbfrac(bfspec, bfdca, dir + 'bfrac.pdf')
     cfold = []
     bfold = []
     hfold = []
@@ -170,13 +180,12 @@ if use_all_data:
         cfold.append((1 - bf) * np.dot(m[:, c], gpt[c]))
         bfold.append(bf * np.dot(m[:, b], gpt[b]))
         hfold.append(cfold[i] + bfold[i])
-        hfold[i] *= dca[i].sum() / hfold[i].sum()
 
-    # cfold = [np.dot(m[:, c], gpt[c]) for m in dcamat]
-    # bfold = [np.dot(m[:, b], gpt[b]) for m in dcamat]
-    # hfold = cfold + bfold
-    # hfold = [hfold[i] *  for i in range(6)]
-    # hfold = [(1 - bfrac) * cfold[i] + bfrac * bfold[i] for i in range(6)]
-    # bfold = [bfold[i] * dca[i].sum()/hfold[i].sum() for i in range(6)]
-    # cfold = [cfold[i] * dca[i].sum()/hfold[i].sum() for i in range(6)]
-    pf.plotdca_fold(dca, cfold, bfold, hfold, 'pdfs/test/dca-fold.pdf')
+        datasum = dca[i][:48,0].sum() + dca[i][52:,0].sum()
+        foldsum = hfold[i][:48].sum() + hfold[i][52:].sum()
+        normfac = datasum / foldsum
+        # nf = dca[i][:,0].sum() / hfold[i].sum()
+        hfold[i] *= normfac
+        cfold[i] *= normfac
+        bfold[i] *= normfac
+    pf.plotdca_fold(dca, cfold, bfold, hfold, pdfdir + '/dca-fold.pdf')
