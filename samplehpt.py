@@ -27,14 +27,6 @@ bfrac = 0.007
 
 io.mf = io.modelfile(dcares, bfrac)
 
-# Get data
-dca = None
-ept = None
-ept_err = None
-if dtype == 'MC':
-    ept = io.eptmatrix().sum(axis=1)
-    dca = [m.sum(axis=1) for m in io.dcamatrices()]
-
 # Get model components
 eptmat, dcamat = io.matrices()
 gpt, gptx, gptbins = io.genpt()
@@ -43,10 +35,66 @@ raa = raamodel.getraa(gptx, ndim / 2)
 gptmod = gpt * raa
 eptmod = np.dot(eptmat, gptmod)
 ept_err = np.sqrt(eptmod)
-dcamod = [np.dot(m, gptmod) for m in io.dcamatrices()]
 eptx, eptbins = io.eptbins()
 gptw = io.binwidths(gptbins)
 eptw = io.binwidths(eptbins)
+
+dcax, dcabins, dcaeptx, dcaeptbins = io.dcabins()
+
+# Get data
+dca = np.zeros(dcamat[0].shape[0])
+dcamod = np.zeros(dcamat[0].shape[0])
+ept = np.zeros(eptmat.shape[0])
+ept_err = np.zeros(eptmat.shape[0])
+if dtype == 'MC':
+    # statistics of QM12 DCA distributions:
+    qm12ppbkg = [17948, 3386,  776, 212,  87, 13]
+    qm12pptot = [29492, 7317, 2221, 811, 482, 98]
+    qm12mbbkg = [91148, 11388, 2148, 556, 191, 34]
+    qm12mbtot = [181649, 31795, 7172, 2171, 1010, 170]
+
+    ept = io.eptmatrix().sum(axis=1)
+    dca = [m.sum(axis=1) for m in io.dcamatrices()]
+    dcamod = [np.dot(m, gptmod) for m in io.dcamatrices()]
+    for i,d in enumerate(dcamod):
+        d *= qm12mbtot[i]/d.sum()
+        for j,mu in enumerate(d):
+            d[j] = np.random.poisson(mu)
+        dcamod[i] = d
+        np.savetxt("csv/dcamod%d.csv" % i, d, delimiter=",")
+sys.exit(0)
+# ########################################################################3
+# def plotdca_dists():
+#     print("plotdca_dists()")
+#     nr, nc = 2, 3
+#     fig, axes = plt.subplots(nr, nc)
+#     for row in range(nr):
+#         for col in range(nc):
+#             i = nc * row + col
+#             a = axes[row, col]
+#             # a.set_yscale('log')
+#             # a.set_ylim([1, 1.2 * np.max(hptd[i])])
+#             a.set_xlim([dcabins[0], dcabins[-1]])
+#             a.tick_params(axis='x', top='off', labelsize=6)
+#             a.tick_params(axis='y', labelsize=6)
+#             s = r'{0:.1f}-{1:.1f} GeV/c'.format(
+#                 dcaeptbins[i], dcaeptbins[i + 1])
+#             a.text(0.55, 0.9, s, fontsize=8, transform=a.transAxes)
+#             # a.step(dcax, hfold_dca[i], lw=1, alpha=0.8, color='crimson')
+#             # a.step(dcax, cfold_dca[i], lw=1, alpha=0.8, color='darkorange')
+#             # a.step(dcax, bfold_dca[i], lw=1, alpha=0.8, color='dodgerblue')
+#             # if False:
+#             #     a.step(dcax, bkg[i], color='brown')
+#             #     a.step(dcax, dca[i], color='black', alpha=0.6)
+#             if True:
+#                 a.bar(dcabins[:-1], dcamod[i], width=dcabins[1]-dcabins[0], 
+#                       log=True, color='red', edgecolor='red', linewidth=0, alpha=0.6)
+#     fig.savefig('pdfs/dca_dists_mod.pdf', bbox_inches='tight')
+#     return
+# plotdca_dists()
+# sys.exit(0)
+########################################################################3
+
 
 # Create a combined electron pt + electron DCA data list.
 alldata = [eptmod]
@@ -182,6 +230,7 @@ for ax in axes:
     ax.errorbar(ptx, pq[r, 0] / w, yerr=[pq[r, 2] / w, pq[r, 1] / w],
                 ls='*', fmt='o', color='crimson', ecolor='crimson', capthick=2)
 fig.savefig('pdfs/hpt.pdf')
+np.savetxt("csv/pq.csv", pq, delimiter=",")
 
 # Draw ept
 eptrefold = np.dot(eptmat, pq[:, 0])

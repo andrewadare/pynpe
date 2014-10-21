@@ -144,6 +144,35 @@ def genpt(opt=''):
     else:
         return gpt, gptx, gptbins
 
+
+def write_csv(a, filename):
+    '''
+    Write a 1- or 2-dimensional numpy array to csv file.
+    Does not work with arrays of rank > 2 (a savetxt() limitation). 
+    Includes a header with dimension info, which can be parsed by get_dims().
+    '''
+    with file(filename, 'w') as outfile:
+        print('Writing array with shape {} to {}...'.format(a.shape, filename))
+        outfile.write('# Array shape: {}\n'.format(a.shape))
+        np.savetxt(outfile, a, fmt='%.0f', delimiter=',')
+
+
+def get_dims(filename):
+    '''
+    Parse first line of csv file written above to return shape.
+    '''
+    with open(filename, 'r') as f:
+        l = f.readline()
+        dims = l[l.find("(") + 1:l.find(")")].split(', ')
+        return [int(d) for d in dims]
+
+
+def find(name, path):
+    for root, dirs, files in os.walk(path):
+        if name in files:
+            return os.path.join(root, name)
+
+
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
