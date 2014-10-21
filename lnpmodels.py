@@ -93,7 +93,7 @@ def gamma_poisson(x, A, b, icov_data, x_prior, gamma_a, gamma_b):
     return lngamma(x, gamma_a, gamma_b) + lnpoiss(b, np.dot(A, x))
 
 
-def gaussian_gaussian(x, A, b, icov_data, x_prior, icov_prior, alpha, 
+def gaussian_gaussian(x, A, b, icov_data, x_prior, icov_prior, alpha,
                       xmin, xmax, L=None):
     '''
     Gaussian prior; Gaussian likelihood
@@ -101,10 +101,40 @@ def gaussian_gaussian(x, A, b, icov_data, x_prior, icov_prior, alpha,
     if np.any(x < xmin) or np.any(x > xmax):
         return -np.inf
 
-    return lngauss(x, x_prior, icov_prior) + lngauss(b, np.dot(A, x), icov_data)
+    log_prior = lngauss(x, x_prior, icov_prior)
+    ll = lngauss(b, np.dot(A, x), icov_data)
+
+    return log_prior + ll
 
 
-def l2_gaussian(x, A, data, icov_data, x_prior, alpha, xlim, L=None):
+def logp_ept_dca(x, matlist, datalist, dataweights, x_prior, alpha, xlim, L):
+    '''
+    Intended for use with electron pt model (data) as first element of 
+    matlist (datalist), and electron DCA model/data as remaining elements.
+    '''
+    lp = dataweights[0] * l2_gaussian(x, matlist[0], datalist[0],
+                                      x_prior, alpha, xlim, L)
+
+    if (lp > -np.inf and dataweights[1] > 0.):
+        lp += dataweights[1] * l2_poisson_shape(x, matlist[1:], datalist[1:],
+                                                x_prior, alpha, xlim, L)
+    return lp
+
+
+def l2reg(x, x_prior, alpha, L=None):
+    c, b = ui.idx['c'], ui.idx['b']
+
+    rc, rb = x[c] / x_prior[c], x[b] / x_prior[b]
+
+    if L is not None:
+        rc, rb = np.dot(L[:, c], rc), np.dot(L[:, b], rb)
+
+    # Truncate to exclude boundary points
+    rc, rb = rc[1:-1], rb[1:-1]
+    return -alpha * alpha * (np.dot(rc, rc) + np.dot(rb, rb))
+
+
+def l2_gaussian(x, A, data, x_prior, alpha, xlim, L=None):
     '''
     L2 regularization; Gaussian likelihood
     x: trial solution
@@ -118,16 +148,42 @@ def l2_gaussian(x, A, data, icov_data, x_prior, alpha, xlim, L=None):
     c, b = ui.idx['c'], ui.idx['b']
 
     # Log likelihood
-    prediction = (1 - f) * np.dot(A[:,c], x[c]) + f * np.dot(A[:,b], x[b])
-    ll = lngauss(data, prediction, icov_data)
+    prediction = (1 - f) * np.dot(A[:, c], x[c]) + f * np.dot(A[:, b], x[b])
+    icov_data = np.diag(1. / (data[:, 1] ** 2))
+    ll = lngauss(data[:, 0], prediction, icov_data)
 
-    # Regularization
-    rc, rb = x[c]/x_prior[c], x[b]/x_prior[b]
-    if L is not None:
-        rc, rb = np.dot(L[:,c], rc), np.dot(L[:,b], rb)
-    reg = -alpha * alpha * (np.dot(rc, rc) + np.dot(rb, rb))
+    return ll + l2reg(x, x_prior, alpha, L)
 
-    return ll + reg
+
+def l2_poisson_shape(x, matlist, datalist, x_prior, alpha, xlim, L=None):
+    '''
+    L2 regularization; Poisson likelihood
+    x: trial solution
+    A: matrix mapping x -> prediction
+    data: measurements for prediction to be compared against. 
+    '''
+    if np.any(x < xlim[:, 0]) or np.any(x > xlim[:, 1]):
+        return -np.inf
+
+    c, b = ui.idx['c'], ui.idx['b']
+    result = 0.0
+
+    i = 0
+    for A, data in zip(matlist, datalist):
+        f = ui.idx['f'][i] 
+        # Calculate prediction from this sample vector x
+        pred = (1 - f) * np.dot(A[:, c], x[c]) + f * np.dot(A[:, b], x[b])
+
+        # TODO: pass in background vector and add to prediction:
+        # pred += bkg
+
+        # Scale predicted yield to match data and round
+        pred = np.round(np.sum(data[:, 0]) / np.sum(pred) * pred)
+
+        result += lnpoiss(data[:, 0], pred) + l2reg(x, x_prior, alpha, L)
+        i += 1
+
+    return result
 
 
 def l2_poisson(x, A, b, x_prior, alpha, xmin, xmax, L=None):
@@ -149,34 +205,34 @@ def l2_poisson(x, A, b, x_prior, alpha, xmin, xmax, L=None):
     return -alpha * alpha * np.dot(xr, xr) + lnpoiss(b, np.dot(A, x))
 
 
-def l2_poisson_shape(x, Alist, blist, x_prior, alpha, xmin, xmax, L=None):
-    '''
-    Compute likelihood based only on shape comparison between Ax and b.
-    Otherwise similar to l2_poisson.
-    '''
+# def l2_poisson_shape(x, Alist, blist, x_prior, alpha, xmin, xmax, L=None):
+#     '''
+#     Compute likelihood based only on shape comparison between Ax and b.
+#     Otherwise similar to l2_poisson.
+#     '''
 
-    # Make a 2-vector with c-hadron and b-hadron integrated yields from x.
-    # ndim = x.shape[0]
-    # xint = np.array([np.sum(x[:ndim/2]), np.sum(x[ndim/2:ndim])])
+# Make a 2-vector with c-hadron and b-hadron integrated yields from x.
+# ndim = x.shape[0]
+# xint = np.array([np.sum(x[:ndim/2]), np.sum(x[ndim/2:ndim])])
 
-    result = 0.0
-    for A, b in zip(Alist, blist):
-        if np.any(x < xmin) or np.any(x > xmax):
-            return -np.inf
+#     result = 0.0
+#     for A, b in zip(Alist, blist):
+#         if np.any(x < xmin) or np.any(x > xmax):
+#             return -np.inf
 
-        xr = x / x_prior
-        if L is not None:
-            xr = np.dot(L, xr)
+#         xr = x / x_prior
+#         if L is not None:
+#             xr = np.dot(L, xr)
 
-        xr = xr[1:-1]  # Truncate to exclude boundary points
+# xr = xr[1:-1]  # Truncate to exclude boundary points
 
-        reg = -alpha * alpha * np.dot(xr, xr)
-        Ax = np.dot(A, x)
-        Ax = np.sum(b) / np.sum(Ax) * Ax
-        result += reg + lnpoiss(b, Ax)
-        # result += lnpoiss(b, Ax)
+#         reg = -alpha * alpha * np.dot(xr, xr)
+#         Ax = np.dot(A, x)
+#         Ax = np.sum(b) / np.sum(Ax) * Ax
+#         result += reg + lnpoiss(b, Ax)
+# result += lnpoiss(b, Ax)
 
-    return result
+#     return result
 
 
 def l2_poisson_combined(x, Alist, blist, x_prior, alpha, xmin, xmax, L=None):

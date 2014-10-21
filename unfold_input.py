@@ -26,13 +26,18 @@ bptx = bptbins[:-1] + bptw / 2
 hptx = hptbins[:-1] + hptw / 2
 dcax = dcabins[:-1] + dcaw / 2
 
-# Number of "dimensions" = free parameters = bins in unfolding result
+# Number of "dimensions" = free parameters = bins in unfolding result.
+# nfb is currently 7: 6 dca + 1 ept. Indices follow that order.
 ncpt = len(cptx)
 nbpt = len(bptx)
 nhpt = len(hptx)
+nfb  = len(dcaeptbins)
 
-# Indices of c or b hadron points within concatenated array
-idx = {'c' : np.arange(0, ncpt), 'b' : np.arange(ncpt, ncpt + nbpt)}
+# Indices of c or b hadron points within parameter array.
+# idx['f'] = 0..6, where 0-5 are the dca ept indices and 6 is for ept.
+idx = {'c': np.arange(0, ncpt),
+       'b': np.arange(ncpt, ncpt + nbpt),
+       'f': np.arange(ncpt + nbpt, ncpt + nbpt + nfb)}
 
 
 def project_and_save(draw=False):
@@ -156,18 +161,6 @@ def eptmatrix(weighted=True):
         bmat /= bhpt
     return np.hstack((cmat, bmat))
 
-# def eptmatrix(bfrac, weighted=True):
-#     cmat = np.loadtxt('csv/c_to_ept.csv', delimiter=',')
-#     bmat = np.loadtxt('csv/b_to_ept.csv', delimiter=',')
-#     cf = (1. - bfrac)
-#     bf = bfrac
-#     if weighted == True:
-#         chpt = np.loadtxt('csv/c_pt.csv', delimiter=',')
-#         bhpt = np.loadtxt('csv/b_pt.csv', delimiter=',')
-#         cmat /= chpt
-#         bmat /= bhpt
-#     return np.hstack((cf * cmat, bf * bmat))
-
 
 def dcamatrix(dca_ept_bin, weighted=True):
     cfile = 'csv/c_to_dca_{}.csv'.format(dca_ept_bin)
@@ -210,7 +203,10 @@ def dcamat_proj(dca_ept_bin, bfrac, axis):
     cmat = np.loadtxt(cfile, delimiter=',')
     bmat = np.loadtxt(bfile, delimiter=',')
     m = np.hstack(((1. - bfrac) * cmat, bfrac * bmat))
-    return m.sum(axis)
+    proj = m.sum(axis)
+    # Add error column.
+    proj = np.vstack((proj, np.sqrt(proj))).T
+    return proj
 
 
 def eptdata(data_type):
@@ -222,23 +218,24 @@ def eptdata(data_type):
     d = ppg077data
     if data_type == 'AuAu200MB':
         pts = d.yinv_mb[7:]
-        stat_err = 0.5*(d.statlo_mb[7:]+ d.stathi_mb[7:])
-        syst_err = 0.5*(d.syslo_mb[7:] + d.syshi_mb[7:])
+        stat_err = 0.5 * (d.statlo_mb[7:] + d.stathi_mb[7:])
+        syst_err = 0.5 * (d.syslo_mb[7:] + d.syshi_mb[7:])
         err = np.sqrt(stat_err * syst_err)
 
         # Multiply by bin width
         pts *= np.diff(d.eptbins[7:])
         err *= np.diff(d.eptbins[7:])
-        return np.vstack((pts,stat_err)).T
+        return np.vstack((pts, stat_err)).T
 
     elif data_type == 'pp200':
         pts = d.xsec_pp[7:]
-        err = np.sqrt(d.stat_pp[7:]*d.stat_pp[7:] + d.syst_pp[7:]*d.syst_pp[7:])
+        err = np.sqrt(
+            d.stat_pp[7:] * d.stat_pp[7:] + d.syst_pp[7:] * d.syst_pp[7:])
 
         # Multiply by bin width
         pts *= np.diff(d.eptbins[7:])
         err *= np.diff(d.eptbins[7:])
-        return np.vstack((pts,err)).T
+        return np.vstack((pts, err)).T
 
     else:
         print('Error: data_type "{}" not recognized'.format(data_type))
@@ -264,6 +261,27 @@ def dcadata(dca_ept_bin, data_type, incl_or_bkg='incl'):
     f = TFile('rootfiles/ppg077spectra.root')
     h = f.Get(hname)
     return h2a(h)
+
+
+def dcadata_sim(dca_ept_bin, bfrac, dtype='MB'):
+    # statistics of QM12 DCA distributions:
+    qm12ppbkg = [17948, 3386,  776, 212,  87, 13]
+    qm12pptot = [29492, 7317, 2221, 811, 482, 98]
+    qm12mbbkg = [91148, 11388, 2148, 556, 191, 34]
+    qm12mbtot = [181649, 31795, 7172, 2171, 1010, 170]
+
+    tot = qm12mbtot[dca_ept_bin]  # TODO: generalize
+
+    dproj = dcamat_proj(dca_ept_bin, bfrac, axis=1)
+    dproj *= tot / dproj.sum()
+    for j, mu in enumerate(dproj[:, 0]):
+        dproj[j, 0] = np.random.poisson(mu)
+
+    dproj[:, 1] = np.sqrt(dproj[:, 0])
+    # Add error column.
+    # dproj = np.hstack((dproj, np.sqrt(dproj)))
+    # TODO include background column? Maybe zeros for sims
+    return dproj
 
 
 if __name__ == '__main__':

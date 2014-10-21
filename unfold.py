@@ -7,14 +7,16 @@ import plotting_functions as pf
 #--------------------------------------------------------------------------
 # Setup/configuration
 #--------------------------------------------------------------------------
-use_all_data = False
+use_all_data = True
 alpha = 0.2
 nwalkers = 500
 nburnin = 500
 nsteps = 500
 dtype = 'MC'  # 'AuAu200MB'  # 'pp200' 'MC'
 bfrac = 0.0073
-ndim = ui.nhpt + 1
+n_bfrac_pars = 7 if use_all_data else 1
+ndim = ui.nhpt + n_bfrac_pars
+c, b, f = ui.idx['c'], ui.idx['b'], ui.idx['f']
 
 # Weighted matrices - elements are joint probabilities
 eptmat = ui.eptmatrix()
@@ -26,12 +28,12 @@ ept_pp = ui.eptdata('pp200')
 
 # Model data from pythia - fully self-consistent problem for testing
 ept_py = ui.eptmat_proj(bfrac, axis=1)
-dca_py = [ui.dcamat_proj(i, bfrac, axis=1) for i in range(6)]
+dca_py = [ui.dcadata_sim(i, bfrac) for i in range(6)]
+# dca_py = [ui.dcamat_proj(i, bfrac, axis=1) for i in range(6)]
 
-# Set ept to selected data type
+# Set ept and dca to selected data type
 ept = ept_py if dtype == 'MC' else ui.eptdata(dtype)
-# TODO: set dca options ##########################################
-dca = dca_py
+dca = dca_py if dtype == 'MC' else [ui.dcadata(i, dtype) for i in range(6)]
 
 # Generated pythia inclusive hadron pt.
 # Used for MCMC initial point, for regularization, and for comparison to
@@ -43,12 +45,11 @@ norm_factor = np.sum(ept_pp[5:, 0]) / np.sum(ept_py[5:])
 ept_py *= norm_factor
 gpt *= norm_factor
 
-# Create a combined electron pt + electron DCA data list,
-# same for matrices.
-alldata = [ept]
-[alldata.append(d) for d in dca]
-allmats = [eptmat]
-[allmats.append(m) for m in dcamat]
+# Create a combined electron pt + electron DCA data and matrix list
+datalist = [ept]
+[datalist.append(d) for d in dca]
+matlist = [eptmat]
+[matlist.append(m) for m in dcamat]
 
 #--------------------------------------------------------------------------
 # Run sampler
@@ -56,31 +57,34 @@ allmats = [eptmat]
 # Ensemble of starting points for the walkers - shape (nwalkers, ndim)
 print("Initializing {} {}-dim walkers...".format(nwalkers, ndim))
 p0 = np.zeros((nwalkers, ndim))
-p0[:, :-1] = gpt * (1 + 0.1 * np.random.randn(nwalkers, ui.nhpt))
-p0[:, -1] = bfrac * (1 + 0.1 * np.random.randn(nwalkers))
+p0[:, c] = gpt[c] * (1 + 0.1 * np.random.randn(nwalkers, ui.ncpt))
+p0[:, b] = gpt[b] * (1 + 0.1 * np.random.randn(nwalkers, ui.nbpt))
+if use_all_data:
+    p0[:, f] = bfrac * (1 + 0.1 * np.random.randn(nwalkers, ui.nfb))
+else:
+    p0[:, -1] = bfrac * (1 + 0.1 * np.random.randn(nwalkers))
 
 # Parameter limits - shape (ndim,2)
-parlimits = np.vstack((0.01 * gpt, 2.0 * gpt)).T
-parlimits = np.vstack((parlimits, (0.001, 0.02)))
+hpt_parlimits = np.vstack((0.01 * gpt, 2.0 * gpt)).T
+bfrac_parlimits = np.vstack((np.zeros(n_bfrac_pars), np.ones(n_bfrac_pars))).T
+parlimits = np.vstack((hpt_parlimits, bfrac_parlimits))
 
 L = np.hstack((lnpmodels.fd2(ui.ncpt), lnpmodels.fd2(ui.nbpt)))
 fcn = None  # Function returning values \propto posterior probability
 args = None  # Argument list for fcn
 if use_all_data:
-    # Use electron pt + 6 electron DCA datasets.
-    fcn = lnpmodels.l2_poisson_combined
-    args = [allmats, alldata, gpt, alpha, ymin, ymax, L]
-
+    fcn = lnpmodels.logp_ept_dca
+    dataweights = (0.5, 0.5)
+    args = (matlist, datalist, dataweights, gpt, alpha, parlimits, L)
+    # fcn = lnpmodels.l2_poisson_combined
+    # args = [matlist, datalist, gpt, alpha, ymin, ymax, L]
 else:
-    # Gaussian likelihood model
-    icov_data = np.diag(1. / (ept[:, 1] ** 2))
+    # icov_data = np.diag(1. / (ept[:, 1] ** 2))
     fcn = lnpmodels.l2_gaussian
-    args = [eptmat, ept[:, 0], icov_data, gpt, alpha, parlimits, L]
-
+    args = (eptmat, ept, gpt, alpha, parlimits, L)
     # Poisson likelihood model
     # fcn = lnpmodels.l2_poisson
     # args = [eptmat, ept[:,0], gpt, alpha, ymin, ymax, L]
-
 sampler = emcee.EnsembleSampler(nwalkers, ndim, fcn, args=args, threads=2)
 
 print("Burning in for {} steps...".format(nburnin))
@@ -108,7 +112,6 @@ print 'b/(b+c) fraction: {:.3g} + {:.3g} - {:.3g}'.format(*bfrac_result)
 #--------------------------------------------------------------------------
 
 # Refold arrays have shape (neptx, 3). Cols: mid, ehi, elo
-c, b = ui.idx['c'], ui.idx['b']
 ceptr = (1. - bfrac_result[0]) * np.dot(eptmat[:, c], pq[c, :])
 beptr = bfrac_result[0] * np.dot(eptmat[:, b], pq[b, :])
 heptr = ceptr + beptr
@@ -121,3 +124,23 @@ pf.plot_post_marg(samples[:, :-1], dir + 'posterior.pdf')
 pf.plot_lnprob(sampler.flatlnprobability, dir + 'lnprob.pdf')
 pf.plot_lnp_steps(sampler, nburnin, dir + 'lnprob-vs-step.pdf')
 pf.plot_ept(0.1 * ept_mb, ept_pp, ept_py, dir + 'ept-comparison.pdf')
+
+if use_all_data:
+    cfold = []
+    bfold = []
+    hfold = []
+    for i, m in enumerate(dcamat):
+        bf = pq[f[i], 0]
+        cfold.append((1 - bf) * np.dot(m[:, c], gpt[c]))
+        bfold.append(bf * np.dot(m[:, b], gpt[b]))
+        hfold.append(cfold[i] + bfold[i])
+        hfold[i] *= dca[i].sum() / hfold[i].sum()
+
+    # cfold = [np.dot(m[:, c], gpt[c]) for m in dcamat]
+    # bfold = [np.dot(m[:, b], gpt[b]) for m in dcamat]
+    # hfold = cfold + bfold
+    # hfold = [hfold[i] *  for i in range(6)]
+    # hfold = [(1 - bfrac) * cfold[i] + bfrac * bfold[i] for i in range(6)]
+    # bfold = [bfold[i] * dca[i].sum()/hfold[i].sum() for i in range(6)]
+    # cfold = [cfold[i] * dca[i].sum()/hfold[i].sum() for i in range(6)]
+    pf.plotdca_fold(dca, cfold, bfold, hfold, 'pdfs/test/dca-fold.pdf')
