@@ -20,10 +20,10 @@ ndim = ui.nhpt + n_bfrac_pars
 c, b, f = ui.idx['c'], ui.idx['b'], ui.idx['f']
 
 # Output locations
-pdfdir = 'pdfs/' + dtype
-csvdir = 'csv/' + dtype
-if not os.path.isdir(pdfdir): os.mkdirs(pdfdir)
-if not os.path.isdir(csvdir): os.mkdirs(csvdir)
+pdfdir = 'pdfs/' + dtype + '/'
+csvdir = 'csv/' + dtype + '/'
+if not os.path.isdir(pdfdir): os.makedirs(pdfdir)
+if not os.path.isdir(csvdir): os.makedirs(csvdir)
 
 # Weighted matrices - elements are joint probabilities
 eptmat = ui.eptmatrix()
@@ -42,30 +42,8 @@ dca_py = [ui.dcadata_sim(i, bfrac) for i in range(6)]
 ept = ept_py if dtype == 'MC' else ui.eptdata(dtype)
 dca = dca_py if dtype == 'MC' else [ui.dcadata(i, dtype) for i in range(6)]
 
-# Create mask as array of 0's (included) and 1's (masked)
-dcamask = [np.zeros_like(d) for d in dca]
-maskranges_mb = np.array([
-    [0.04, 0.03, -0.15, -0.15, -0.15, -0.15],
-    [0.15, 0.15, -0.02, -0.01, -0.01, -0.01],
-    [9999, 9999, +0.02, +0.01, +0.01, +0.01],
-    [9999, 9999, +0.15, +0.15, +0.15, +0.15]])
-maskranges_pp = np.array([
-    [-0.15, -0.15, -0.15, -0.15, -0.15, -0.15],
-    [-0.01, -0.01, -0.01, -0.01, -0.01, -0.01],
-    [+0.01, +0.01, +0.01, +0.01, +0.01, +0.01],
-    [+0.15, +0.15, +0.15, +0.15, +0.15, +0.15]])
-
-for i in range(6):
-    r = maskranges_pp
-    for j,x in enumerate(ui.dcabins[:-1]):
-        if (x > r[0,i] and x < r[1,i]) or (x > r[2,i] and x < r[3,i]):
-            dcamask[i][j,:] = 0 # Good, keep
-        else:
-            dcamask[i][j,:] = 1 # Bad, mask
-    dca[i] = np.ma.masked_array(dca[i], dcamask[i])
-    #print dca[i]
-
-#sys.exit()
+# Chop out rows matching excluded DCA bins
+subdca, subdcamat = ui.dca_subset(dca, dcamat, dtype)
 
 # Generated pythia inclusive hadron pt.
 # Used for MCMC initial point, for regularization, and for comparison to
@@ -79,9 +57,9 @@ gpt *= norm_factor
 
 # Create a combined electron pt + electron DCA data and matrix list
 datalist = [ept]
-[datalist.append(d) for d in dca]
+[datalist.append(d) for d in subdca]
 matlist = [eptmat]
-[matlist.append(m) for m in dcamat]
+[matlist.append(m) for m in subdcamat]
 
 #--------------------------------------------------------------------------
 # Run sampler
@@ -93,16 +71,16 @@ bfrac_parlimits = np.vstack((1e-6 * np.ones(n_bfrac_pars),
 parlimits = np.vstack((hpt_parlimits, bfrac_parlimits))
 
 # Ensemble of starting points for the walkers - shape (nwalkers, ndim)
-p0 = np.zeros((nwalkers, ndim))
+x0 = np.zeros((nwalkers, ndim))
 print("Initializing {} {}-dim walkers...".format(nwalkers, ndim))
-p0[:, c] = gpt[c] * (1 + 0.1 * np.random.randn(nwalkers, ui.ncpt))
-p0[:, b] = gpt[b] * (1 + 0.1 * np.random.randn(nwalkers, ui.nbpt))
+x0[:, c] = gpt[c] * (1 + 0.1 * np.random.randn(nwalkers, ui.ncpt))
+x0[:, b] = gpt[b] * (1 + 0.1 * np.random.randn(nwalkers, ui.nbpt))
 if use_all_data:
     bfrac_prior = np.array(
         [0.0137, 0.0343, 0.0737, 0.137, 0.246, 0.418, 0.0073])
-    p0[:, f] = bfrac_prior * (1 + 0.001 * np.random.randn(nwalkers, ui.nfb))
+    x0[:, f] = bfrac_prior * (1 + 0.001 * np.random.randn(nwalkers, ui.nfb))
 else:
-    p0[:, -1] = bfrac * (1 + 0.1 * np.random.randn(nwalkers))
+    x0[:, -1] = bfrac * (1 + 0.1 * np.random.randn(nwalkers))
 
 # Smoothing matrix
 L = np.hstack((lnpmodels.fd2(ui.ncpt), lnpmodels.fd2(ui.nbpt)))
@@ -114,10 +92,7 @@ if use_all_data:
     fcn = lnpmodels.logp_ept_dca
     dataweights = (1. / 21, 1. / 600)
     args = (matlist, datalist, dataweights, gpt, alpha, parlimits, L)
-    # fcn = lnpmodels.l2_poisson_combined
-    # args = [matlist, datalist, gpt, alpha, ymin, ymax, L]
 else:
-    # icov_data = np.diag(1. / (ept[:, 1] ** 2))
     fcn = lnpmodels.l2_gaussian
     args = (eptmat, ept, gpt, alpha, parlimits, L)
     # Poisson likelihood model
@@ -126,7 +101,7 @@ else:
 sampler = emcee.EnsembleSampler(nwalkers, ndim, fcn, args=args, threads=2)
 
 print("Burning in for {} steps...".format(nburnin))
-pos, prob, state = sampler.run_mcmc(p0, nburnin)
+pos, prob, state = sampler.run_mcmc(x0, nburnin)
 sampler.reset()
 print("Running sampler for {} steps...".format(nsteps))
 sampler.run_mcmc(pos, nsteps)
@@ -140,7 +115,7 @@ samples = sampler.chain.reshape((-1, ndim))
 pq = map(lambda v: (v[1], v[2] - v[1], v[1] - v[0]),
          zip(*np.percentile(samples, [16, 50, 84], axis=0)))
 pq = np.array(pq)
-np.savetxt("{}/pq_{}.csv".format(csvdir, dtype), pq, delimiter=",")
+np.savetxt("{}pq_{}.csv".format(csvdir, dtype), pq, delimiter=",")
 
 # b fraction unfold pars: rows are output points. cols: mid, errhi, errlo
 # bf_int is integrated over electron pt \in 1-9 GeV/c
@@ -159,7 +134,7 @@ heptr = ceptr + beptr
 
 pf.plot_bfrac_samples(samples[:, -1], bf_int, pdfdir + 'bfrac_dist.pdf')
 pf.plotept_refold(ept, ceptr, beptr, heptr, pdfdir + 'ept_refold.pdf')
-pf.plot_result(parlimits[:-1, :], p0[:, :-1], gpt, pq, pdfdir + 'hpt.pdf')
+pf.plot_result(parlimits[:-1, :], x0[:, :-1], gpt, pq, pdfdir + 'hpt.pdf')
 pf.plot_post_marg(samples[:, :-1], pdfdir + 'posterior.pdf')
 pf.plot_lnprob(sampler.flatlnprobability, pdfdir + 'lnprob.pdf')
 pf.plot_lnp_steps(sampler, nburnin, pdfdir + 'lnprob-vs-step.pdf')
@@ -171,7 +146,7 @@ if use_all_data:
     # Estimate error on bfspec - TODO: use something like BayesDivide
     bfspec[:,1] = beptr[:,1]/heptr[:,0] 
     bfspec[:,2] = beptr[:,2]/heptr[:,0] 
-    pf.plotbfrac(bfspec, bfdca, dir + 'bfrac.pdf')
+    pf.plotbfrac(bfspec, bfdca, pdfdir + 'bfrac.pdf')
     cfold = []
     bfold = []
     hfold = []
@@ -188,4 +163,4 @@ if use_all_data:
         hfold[i] *= normfac
         cfold[i] *= normfac
         bfold[i] *= normfac
-    pf.plotdca_fold(dca, cfold, bfold, hfold, pdfdir + '/dca-fold.pdf')
+    pf.plotdca_fold(dca, cfold, bfold, hfold, pdfdir + 'dca-fold.pdf')

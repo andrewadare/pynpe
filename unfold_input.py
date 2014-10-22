@@ -39,6 +39,39 @@ idx = {'c': np.arange(0, ncpt),
        'b': np.arange(ncpt, ncpt + nbpt),
        'f': np.arange(ncpt + nbpt, ncpt + nbpt + nfb)}
 
+maskranges_mb = np.array([
+    [0.04, 0.03, -0.15, -0.15, -0.15, -0.15],
+    [0.15, 0.15, -0.02, -0.01, -0.01, -0.01],
+    [9999, 9999, +0.02, +0.01, +0.01, +0.01],
+    [9999, 9999, +0.15, +0.15, +0.15, +0.15]])
+
+maskranges_pp = np.array([
+    [-0.15, -0.15, -0.15, -0.15, -0.15, -0.15],
+    [-0.01, -0.01, -0.01, -0.01, -0.01, -0.01],
+    [+0.01, +0.01, +0.01, +0.01, +0.01, +0.01],
+    [+0.15, +0.15, +0.15, +0.15, +0.15, +0.15]])
+
+def dca_subset(dcalist, dcamatlist, dtype):
+    '''
+    Create subarrays excluding masked data - no gaps, dimensions are smaller.
+    Numpy masked arrays were tried, but resulted in ~5x slower runtimes 
+    than this approach.
+    '''
+    subdca = []
+    subdcamat = []
+    for i,dfull in enumerate(dcalist):
+        mfull = dcamatlist[i]
+        r = maskranges_mb if dtype=='AuAu200MB' else maskranges_pp
+        a = np.zeros((0, dfull.shape[1]))
+        m = np.zeros((0, mfull.shape[1]))
+        for j,x in enumerate(dcabins[:-1]):
+            if (x > r[0,i] and x < r[1,i]) or (x > r[2,i] and x < r[3,i]):
+                a = np.vstack([a,dfull[j,:]])
+                m = np.vstack([m,mfull[j,:]])
+        subdca.append(a)
+        subdcamat.append(m)
+    return subdca, subdcamat
+
 
 def project_and_save(draw=False):
     '''
