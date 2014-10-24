@@ -1,7 +1,8 @@
 import numpy as np
 from scipy.special import gammaln
 import unfold_input as ui
-
+np.set_printoptions(precision=3)
+np.set_printoptions(suppress=True) # suppress exponents on small numbers
 
 def lngamma(x, a, b):
     '''
@@ -29,7 +30,10 @@ def lngauss(x, mu, prec):
     Neglecting terms that don't depend on x.
     '''
     diff = x - mu
-    return -0.5 * np.dot(diff, np.dot(prec, diff))
+    ln_det_sigma = np.sum(np.log(1. / np.diag(prec)))
+    ln_prefactors = -0.5 * (x.shape[0] * np.log(2 * np.pi) + ln_det_sigma)
+    return ln_prefactors - 0.5 * np.dot(diff, np.dot(prec, diff))
+    # return -0.5 * np.dot(diff, np.dot(prec, diff))
 
 
 def lnuniform(x, xref, alpha):
@@ -113,11 +117,11 @@ def logp_ept_dca(x, matlist, datalist, dataweights, x_prior, alpha, xlim, L):
     matlist (datalist), and electron DCA model/data as remaining elements.
     '''
     lp = dataweights[0] * l2_gaussian(x, matlist[0], datalist[0],
-                                      x_prior, alpha, xlim, L)
+                                      x_prior, alpha[0], xlim, L)
 
     if (lp > -np.inf and dataweights[1] > 0.):
         lp += dataweights[1] * l2_poisson_shape(x, matlist[1:], datalist[1:],
-                                                x_prior, alpha, xlim, L)
+                                                x_prior, alpha[1], xlim, L)
     # print lp
     return lp
 
@@ -150,6 +154,8 @@ def l2_gaussian(x, A, data, x_prior, alpha, xlim, L=None):
 
     # Log likelihood
     prediction = (1 - f) * np.dot(A[:, c], x[c]) + f * np.dot(A[:, b], x[b])
+
+    # Assuming data has diagonal covariance...
     icov_data = np.diag(1. / (data[:, 1] ** 2))
     ll = lngauss(data[:, 0], prediction, icov_data)
 
@@ -170,21 +176,28 @@ def l2_poisson_shape(x, matlist, datalist, x_prior, alpha, xlim, L=None):
     result = 0.0
 
     i = 0
+    l2_poisson_shape.prediction = np.zeros((len(datalist),datalist[0].shape[0]))
     for A, data in zip(matlist, datalist):
-        f = ui.idx['f'][i] 
+
+        # Get b-fraction parameter for this dca, pt bin
+        f = x[ui.idx['f'][i]]
+
         # Calculate prediction from this sample vector x
         pred = (1 - f) * np.dot(A[:, c], x[c]) + f * np.dot(A[:, b], x[b])
 
         # Scale predicted yield to match data signal
-        pred = np.sum(data[:, 0]) / np.sum(pred) * pred
+        pred *= np.sum(data[:, 0]) / np.sum(pred)
+
+        l2_poisson_shape.prediction[i,:] = pred
 
         # TODO: pass in background vector and add to prediction:
         # pred += bkg
 
-        result += lnpoiss(data[:, 0], pred) + l2reg(x, x_prior, 10*alpha, L)
+        # result += lnpoiss(data[:, 0], pred) + l2reg(x, x_prior, alpha, L)
+        result += lnpoiss(data[:, 0], pred)
         i += 1
-
-    return result
+    return result + l2reg(x, x_prior, alpha, L)
+l2_poisson_shape.prediction = None
 
 
 def l2_poisson(x, A, b, x_prior, alpha, xmin, xmax, L=None):
@@ -204,37 +217,6 @@ def l2_poisson(x, A, b, x_prior, alpha, xmin, xmax, L=None):
     xr = xr[1:-1]  # Truncate to exclude boundary points
 
     return -alpha * alpha * np.dot(xr, xr) + lnpoiss(b, np.dot(A, x))
-
-
-# def l2_poisson_shape(x, Alist, blist, x_prior, alpha, xmin, xmax, L=None):
-#     '''
-#     Compute likelihood based only on shape comparison between Ax and b.
-#     Otherwise similar to l2_poisson.
-#     '''
-
-# Make a 2-vector with c-hadron and b-hadron integrated yields from x.
-# ndim = x.shape[0]
-# xint = np.array([np.sum(x[:ndim/2]), np.sum(x[ndim/2:ndim])])
-
-#     result = 0.0
-#     for A, b in zip(Alist, blist):
-#         if np.any(x < xmin) or np.any(x > xmax):
-#             return -np.inf
-
-#         xr = x / x_prior
-#         if L is not None:
-#             xr = np.dot(L, xr)
-
-# xr = xr[1:-1]  # Truncate to exclude boundary points
-
-#         reg = -alpha * alpha * np.dot(xr, xr)
-#         Ax = np.dot(A, x)
-#         Ax = np.sum(b) / np.sum(Ax) * Ax
-#         result += reg + lnpoiss(b, Ax)
-# result += lnpoiss(b, Ax)
-
-#     return result
-
 
 def l2_poisson_combined(x, Alist, blist, x_prior, alpha, xmin, xmax, L=None):
     '''
