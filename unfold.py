@@ -9,7 +9,7 @@ import plotting_functions as pf
 #--------------------------------------------------------------------------
 # Setup/configuration
 #--------------------------------------------------------------------------
-use_all_data = False
+use_all_data = True
 alpha = [0.2, 0.2] # Regularization parameters for [spectra, dca]
 nwalkers = 500
 nburnin = 1000
@@ -94,6 +94,7 @@ fcn, args = None, None
 
 if use_all_data:
     # Compute contribution to ln(L) from DCA vs electron pt using x0
+    print 'Computing initial likelihood estimates for balance factors...'
     ll_ept = np.zeros((nwalkers,))
     ll_dca = np.zeros((nwalkers,))
     preds = [np.zeros((nwalkers,subdca[0].shape[0])) for i in range(6)]
@@ -106,17 +107,18 @@ if use_all_data:
         for j in range(6):
             preds[j][i,:] = lnpmodels.l2_poisson_shape.prediction[j,:]
 
-    print 'e spectrum ln(L) initial estimate:', np.mean(ll_ept), np.std(ll_ept)
-    print 'e DCA sum  ln(L) initial estimate:', np.mean(ll_dca), np.std(ll_dca)
+    le, ld = np.mean(ll_ept), np.mean(ll_dca)
+    eptw, dcaw = ld/(le+ld), le/(le+ld)
+    print 'e spectrum ln(L) initial estimate:', le, np.std(ll_ept)
+    print 'e DCA sum  ln(L) initial estimate:', ld, np.std(ll_dca)
+    print 'Spectrum weight factor:', eptw
+    print 'DCA weight factor:', dcaw
 
     for i in range(6):
         np.savetxt('csv/preds{}.csv'.format(i), preds[i], 
                    fmt='%.2f', delimiter=',')
-    sys.exit()
     fcn = lnpmodels.logp_ept_dca
-    dataweights = (1,1)
-    # dataweights = (1. / 2, 1. / 12)
-    # dataweights = (0.999, 0.001)
+    dataweights = (eptw, dcaw)
     args = (matlist, datalist, dataweights, gpt, alpha, parlimits, L)
 else:
     fcn = lnpmodels.l2_gaussian
