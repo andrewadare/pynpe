@@ -5,11 +5,12 @@ import lnpmodels
 import unfold_input as ui
 import plotting_functions as pf
 
+
 #--------------------------------------------------------------------------
 # Setup/configuration
 #--------------------------------------------------------------------------
-use_all_data = True
-alpha = 0.2
+use_all_data = False
+alpha = [0.2, 0.2] # Regularization parameters for [spectra, dca]
 nwalkers = 500
 nburnin = 1000
 nsteps = 500
@@ -34,7 +35,8 @@ ept_mb = ui.eptdata('AuAu200MB')
 ept_pp = ui.eptdata('pp200')
 
 # Model data from pythia - fully self-consistent problem for testing
-ept_py = ui.eptmat_proj(bfrac, axis=1)
+# ept_py = ui.eptmat_proj(bfrac, axis=1)
+ept_py = ui.eptdata_sim(bfrac, ept_pp[:,0].sum(), 'pp200')
 dca_py = [ui.dcadata_sim(i, bfrac) for i in range(6)]
 # dca_py = [ui.dcamat_proj(i, bfrac, axis=1) for i in range(6)]
 
@@ -51,8 +53,8 @@ subdca, subdcamat = ui.dca_subset(dca, dcamat, dtype)
 gpt = ui.genpt()
 
 # Normalize pythia spectra to PHENIX p+p data
-norm_factor = np.sum(ept_pp[5:, 0]) / np.sum(ept_py[5:])
-ept_py *= norm_factor
+norm_factor = np.sum(ept_pp[:, 0]) / np.sum(ui.eptmat_proj(bfrac, axis=1)[:,0])
+# ept_py *= norm_factor
 gpt *= norm_factor
 
 # Create a combined electron pt + electron DCA data and matrix list
@@ -61,6 +63,8 @@ datalist = [ept]
 matlist = [eptmat]
 [matlist.append(m) for m in subdcamat]
 
+pf.plot_ept(0.1 * ept_mb, ept_pp, ept_py, pdfdir + 'ept-comparison.pdf')
+# sys.exit()
 #--------------------------------------------------------------------------
 # Run sampler
 #--------------------------------------------------------------------------
@@ -69,6 +73,9 @@ hpt_parlimits = np.vstack((0.01 * gpt, 2.0 * gpt)).T
 bfrac_parlimits = np.vstack((1e-6 * np.ones(n_bfrac_pars),
                              (1. - 1e-6) * np.ones(n_bfrac_pars))).T
 parlimits = np.vstack((hpt_parlimits, bfrac_parlimits))
+
+# Smoothing matrix
+L = np.hstack((lnpmodels.fd2(ui.ncpt), lnpmodels.fd2(ui.nbpt)))
 
 # Ensemble of starting points for the walkers - shape (nwalkers, ndim)
 x0 = np.zeros((nwalkers, ndim))
@@ -82,22 +89,41 @@ if use_all_data:
 else:
     x0[:, -1] = bfrac * (1 + 0.1 * np.random.randn(nwalkers))
 
-# Smoothing matrix
-L = np.hstack((lnpmodels.fd2(ui.ncpt), lnpmodels.fd2(ui.nbpt)))
-
 # Function returning values \propto posterior probability and arg tuple
 fcn, args = None, None
 
 if use_all_data:
+    # Compute contribution to ln(L) from DCA vs electron pt using x0
+    ll_ept = np.zeros((nwalkers,))
+    ll_dca = np.zeros((nwalkers,))
+    preds = [np.zeros((nwalkers,subdca[0].shape[0])) for i in range(6)]
+    for i in range(nwalkers):
+        x = x0[i,:]
+        ll_ept[i] = lnpmodels.l2_gaussian(x, matlist[0], datalist[0], 
+                                       gpt, alpha[0], parlimits, L)
+        ll_dca[i] = lnpmodels.l2_poisson_shape(x, matlist[1:], datalist[1:], 
+                                            gpt, alpha[1], parlimits, L)
+        for j in range(6):
+            preds[j][i,:] = lnpmodels.l2_poisson_shape.prediction[j,:]
+
+    print 'e spectrum ln(L) initial estimate:', np.mean(ll_ept), np.std(ll_ept)
+    print 'e DCA sum  ln(L) initial estimate:', np.mean(ll_dca), np.std(ll_dca)
+
+    for i in range(6):
+        np.savetxt('csv/preds{}.csv'.format(i), preds[i], 
+                   fmt='%.2f', delimiter=',')
+    sys.exit()
     fcn = lnpmodels.logp_ept_dca
-    dataweights = (1. / 21, 1. / 600)
+    dataweights = (1,1)
+    # dataweights = (1. / 2, 1. / 12)
+    # dataweights = (0.999, 0.001)
     args = (matlist, datalist, dataweights, gpt, alpha, parlimits, L)
 else:
     fcn = lnpmodels.l2_gaussian
-    args = (eptmat, ept, gpt, alpha, parlimits, L)
+    args = (eptmat, ept, gpt, alpha[0], parlimits, L)
     # Poisson likelihood model
     # fcn = lnpmodels.l2_poisson
-    # args = [eptmat, ept[:,0], gpt, alpha, ymin, ymax, L]
+    # args = [eptmat, ept[:,0], gpt, alpha[0], ymin, ymax, L]
 sampler = emcee.EnsembleSampler(nwalkers, ndim, fcn, args=args, threads=2)
 
 print("Burning in for {} steps...".format(nburnin))
@@ -119,28 +145,27 @@ np.savetxt("{}pq_{}.csv".format(csvdir, dtype), pq, delimiter=",")
 
 # b fraction unfold pars: rows are output points. cols: mid, errhi, errlo
 # bf_int is integrated over electron pt \in 1-9 GeV/c
-bfracs = pq[f,:]
-bf_int = bfracs[-1, :]
+bf_int = pq[-1, :]
 print 'b/(b+c) fraction: {:.3g} + {:.3g} - {:.3g}'.format(*bf_int)
 
 #--------------------------------------------------------------------------
 # Plot results
 #--------------------------------------------------------------------------
 
-# Refold arrays have shape (neptx, 3). Cols: mid, ehi, elo
-ceptr = (1. - bfracs[-1,0]) * np.dot(eptmat[:, c], pq[c, :])
-beptr = bfracs[-1,0] * np.dot(eptmat[:, b], pq[b, :])
+ceptr = (1. - bf_int[0]) * np.dot(eptmat[:, c], pq[c, :])
+beptr = bf_int[0] * np.dot(eptmat[:, b], pq[b, :])
 heptr = ceptr + beptr
-
-pf.plot_bfrac_samples(samples[:, -1], bf_int, pdfdir + 'bfrac_dist.pdf')
 pf.plotept_refold(ept, ceptr, beptr, heptr, pdfdir + 'ept_refold.pdf')
+pf.plot_bfrac_samples(samples[:, -1], bf_int, pdfdir + 'bfrac_dist.pdf')
 pf.plot_result(parlimits[:-1, :], x0[:, :-1], gpt, pq, pdfdir + 'hpt.pdf')
 pf.plot_post_marg(samples[:, :-1], pdfdir + 'posterior.pdf')
 pf.plot_lnprob(sampler.flatlnprobability, pdfdir + 'lnprob.pdf')
 pf.plot_lnp_steps(sampler, nburnin, pdfdir + 'lnprob-vs-step.pdf')
-pf.plot_ept(0.1 * ept_mb, ept_pp, ept_py, pdfdir + 'ept-comparison.pdf')
+# pf.plot_ept(0.1 * ept_mb, ept_pp, ept_py, pdfdir + 'ept-comparison.pdf')
 
 if use_all_data:
+    # Refold arrays have shape (neptx, 3). Cols: mid, ehi, elo
+    bfracs = pq[f,:]
     bfspec = beptr / heptr
     bfdca = bfracs[:-1, :]
     # Estimate error on bfspec - TODO: use something like BayesDivide
