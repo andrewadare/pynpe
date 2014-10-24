@@ -30,10 +30,10 @@ def lngauss(x, mu, prec):
     Neglecting terms that don't depend on x.
     '''
     diff = x - mu
-    ln_det_sigma = np.sum(np.log(1. / np.diag(prec)))
-    ln_prefactors = -0.5 * (x.shape[0] * np.log(2 * np.pi) + ln_det_sigma)
-    return ln_prefactors - 0.5 * np.dot(diff, np.dot(prec, diff))
-    # return -0.5 * np.dot(diff, np.dot(prec, diff))
+    # ln_det_sigma = np.sum(np.log(1. / np.diag(prec)))
+    # ln_prefactors = -0.5 * (x.shape[0] * np.log(2 * np.pi) + ln_det_sigma)
+    # return ln_prefactors - 0.5 * np.dot(diff, np.dot(prec, diff))
+    return -0.5 * np.dot(diff, np.dot(prec, diff))
 
 
 def lnuniform(x, xref, alpha):
@@ -157,9 +157,9 @@ def l2_gaussian(x, A, data, x_prior, alpha, xlim, L=None):
 
     # Assuming data has diagonal covariance...
     icov_data = np.diag(1. / (data[:, 1] ** 2))
-    ll = lngauss(data[:, 0], prediction, icov_data)
-
-    return ll + l2reg(x, x_prior, alpha, L)
+    lp = lngauss(data[:, 0], prediction, icov_data)
+    lp += l2reg(x, x_prior, alpha, L)
+    return lp 
 
 
 def l2_poisson_shape(x, matlist, datalist, x_prior, alpha, xlim, L=None):
