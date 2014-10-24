@@ -179,8 +179,12 @@ if use_all_data:
     hfold = []
     for i, m in enumerate(dcamat):
         bf = pq[f[i], 0]
-        cfold.append((1 - bf) * np.dot(m[:, c], gpt[c]))
-        bfold.append(bf * np.dot(m[:, b], gpt[b]))
+        # cfold.append((1 - bf) * np.dot(m[:, c], gpt[c]))
+        # bfold.append(bf * np.dot(m[:, b], gpt[b]))
+        cfold.append(np.dot(m[:, c], gpt[c]))
+        bfold.append(np.dot(m[:, b], gpt[b]))
+        cfold[i] *= (1-bf) / cfold[i].sum()
+        bfold[i] *= bf / bfold[i].sum()
         hfold.append(cfold[i] + bfold[i])
 
         datasum = dca[i][:48,0].sum() + dca[i][52:,0].sum()
