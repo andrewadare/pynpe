@@ -183,7 +183,10 @@ def l2_poisson_shape(x, matlist, datalist, x_prior, alpha, xlim, L=None):
         f = x[ui.idx['f'][i]]
 
         # Calculate prediction from this sample vector x
-        pred = (1 - f) * np.dot(A[:, c], x[c]) + f * np.dot(A[:, b], x[b])
+        cpred = np.dot(A[:, c], x[c])
+        bpred = np.dot(A[:, b], x[b])
+        pred = (1-f)*cpred/cpred.sum() + f*bpred/bpred.sum()
+        # pred = (1 - f) * np.dot(A[:, c], x[c]) + f * np.dot(A[:, b], x[b])
 
         # Scale predicted yield to match data signal
         pred *= np.sum(data[:, 0]) / np.sum(pred)
