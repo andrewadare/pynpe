@@ -13,7 +13,7 @@ def plot_ept(ept_mb, ept_pp, ept_py, figname='ept-comparison.pdf'):
 
     # PYTHIA model ept
     ax.errorbar(ui.eptx, ept_py[:, 0] / ui.eptw, yerr=ept_py[:, 1],
-                lw=2, ls='*', marker='o', ms=10, color='white',
+                lw=2, ls='*', marker='o', ms=10, alpha=0.8,color='steelblue',
                 label=r'PYTHIA HF $e^{\pm}$ $p_T$')
 
     # PHENIX data
@@ -168,7 +168,7 @@ def plotept_refold(ept, cfold, bfold, hfold, figname='ept_refold.pdf'):
                 lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='dodgerblue',
                 label=r'$h_{b}$ refold')
     ax.errorbar(ui.eptx, ept[:, 0] / ui.eptw, yerr=ept[:, 1] / ui.eptw,
-                lw=2, ls='*', marker='o', color='white',
+                lw=2, ls='*', marker='o', color='limegreen',
                 label=r'$e^{\pm}$ $p_T$ data')
     ax.legend()
     fig.savefig(figname)

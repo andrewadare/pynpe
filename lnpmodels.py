@@ -167,7 +167,9 @@ def l2_poisson_shape(x, matlist, datalist, x_prior, alpha, xlim, L=None):
     L2 regularization; Poisson likelihood
     x: trial solution
     A: matrix mapping x -> prediction
-    data: measurements for prediction to be compared against. 
+    data: measurements for prediction to be compared against.
+        - column 0: inclusive data (signal + background).
+        - column 1: background. 
     '''
     if np.any(x < xlim[:, 0]) or np.any(x > xlim[:, 1]):
         return -np.inf
@@ -176,7 +178,9 @@ def l2_poisson_shape(x, matlist, datalist, x_prior, alpha, xlim, L=None):
     result = 0.0
 
     i = 0
-    l2_poisson_shape.prediction = np.zeros((len(datalist),datalist[0].shape[0]))
+
+    maxnpts = max([d.shape[0] for d in datalist])
+    l2_poisson_shape.prediction = np.zeros((len(datalist),maxnpts))
     for A, data in zip(matlist, datalist):
 
         # Get b-fraction parameter for this dca, pt bin
@@ -186,17 +190,16 @@ def l2_poisson_shape(x, matlist, datalist, x_prior, alpha, xlim, L=None):
         cpred = np.dot(A[:, c], x[c])
         bpred = np.dot(A[:, b], x[b])
         pred = (1-f)*cpred/cpred.sum() + f*bpred/bpred.sum()
-        # pred = (1 - f) * np.dot(A[:, c], x[c]) + f * np.dot(A[:, b], x[b])
 
         # Scale predicted yield to match data signal
-        pred *= np.sum(data[:, 0]) / np.sum(pred)
+        scf = (np.sum(data[:, 0]) - np.sum(data[:,1])) / np.sum(pred)
+        pred *= scf
 
-        l2_poisson_shape.prediction[i,:] = pred
+        # Add data background vector to prediction:
+        pred += data[:,1]
 
-        # TODO: pass in background vector and add to prediction:
-        # pred += bkg
+        l2_poisson_shape.prediction[i,:pred.shape[0]] = pred
 
-        # result += lnpoiss(data[:, 0], pred) + l2reg(x, x_prior, alpha, L)
         result += lnpoiss(data[:, 0], pred)
         i += 1
     return result + l2reg(x, x_prior, alpha, L)

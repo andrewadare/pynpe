@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.stats import norm
 from ROOT import TFile, TH1, TH2D, TCanvas, gStyle
 from h2np import h2a
 import ppg077data
@@ -73,7 +74,7 @@ def dca_subset(dcalist, dcamatlist, dtype):
     return subdca, subdcamat
 
 
-def project_and_save(draw=False):
+def project_and_save(dcares=0.007, draw=False):
     '''
     How DCA_pt_template TH3Fs are binned
     ------------------------------------
@@ -88,6 +89,7 @@ def project_and_save(draw=False):
     cb = ['c', 'b']
     gStyle.SetOptStat(0)
     for i, h in enumerate(hcb):
+        print 'Creating', cb[i], 'hadron --> electron pt matrix'
         hbins = cptbins if i == 0 else bptbins
 
         # Rebin inclusive generated hadron pt histogram and write to csv.
@@ -120,6 +122,7 @@ def project_and_save(draw=False):
 
         # Project TH3 to hadron pt vs electron DCA in each electron pt bin
         for j, lowedge in enumerate(dcaeptbins[:-1]):
+            print 'Creating', cb[i], 'hadron --> electron DCA matrix', j
             h.GetXaxis().SetRangeUser(hbins[0], hbins[-1] - 1e-4)
             h.GetYaxis().SetRangeUser(dcaeptbins[j], dcaeptbins[j + 1] - 1e-4)
             h.GetZaxis().SetRangeUser(dcabins[0] + 1e-4, dcabins[-1] - 1e-4)
@@ -130,10 +133,18 @@ def project_and_save(draw=False):
             hadca.SetXTitle('electron DCA [cm]')
             hadca.SetYTitle('{} hadron pt'.format(cb[i]))
 
-            # TODO: apply convolution and shift
+            a = h2a_rebin2d(hadca, dcabins, hbins, xbinshift = -1)
+
+            if dcares > 0:
+                # Apply convolution to columns of a, each column being the DCA 
+                # distribution at hadron pt bin `col'.
+                ker = norm(loc=0.0, scale=dcares).pdf(dcax)
+                ker *= 1./ker.sum()
+                for col in range(a.shape[1]):
+                    a[:,col] = np.convolve(a[:,col], ker, 'same')
 
             np.savetxt('csv/{}_to_dca_{}.csv'.format(cb[i], j),
-                       h2a_rebin2d(hadca, dcabins, hbins),
+                       a,
                        fmt='%.1f', delimiter=',',
                        header='e dca (row) binning: \n{}\n'
                        '{} hadron pt (column) binning: \n{}'
@@ -155,14 +166,14 @@ def h2a_rebin1d(h, newxbins, eps=1e-6):
     return a
 
 
-def h2a_rebin2d(h, newxbins, newybins, eps=1e-6):
+def h2a_rebin2d(h, newxbins, newybins, xbinshift=0, eps=1e-6):
     a = np.zeros([len(newxbins) - 1, len(newybins) - 1])
     for j, ylo in enumerate(newybins[:-1]):
         for i, xlo in enumerate(newxbins[:-1]):
             xhi = newxbins[i + 1] - eps
             yhi = newybins[j + 1] - eps
-            ilo = h.GetXaxis().FindBin(xlo + eps)
-            ihi = h.GetXaxis().FindBin(xhi)
+            ilo = np.max((h.GetXaxis().FindBin(xlo + eps) + xbinshift, 1))
+            ihi = np.min((h.GetXaxis().FindBin(xhi) + xbinshift, h.GetNbinsX()))
             jlo = h.GetYaxis().FindBin(ylo + eps)
             jhi = h.GetYaxis().FindBin(yhi)
 
@@ -275,25 +286,24 @@ def eptdata(data_type):
         return
 
 
-def dcadata(dca_ept_bin, data_type, incl_or_bkg='incl'):
+def dcadata(dca_ept_bin, data_type):
     '''
     Return 1-D numpy array of electron DCA yields.
     data_type can be 'AuAu200MB' or 'pp200'.
-    incl_or_bkg can be 'bkg' or anything.
-    TODO: 'MC' could be added in the future.
+    Column 0 is data, column 1 is background.
     '''
-    sb = 'bkg' if incl_or_bkg == 'bkg' else 'dca'
-    hname = ''
-    if data_type == 'AuAu200MB':
-        hname = 'qm12MB{}{}'.format(sb, dca_ept_bin)
-    elif data_type == 'pp200':
-        hname = 'qm12PP{}{}'.format(sb, dca_ept_bin)
-    else:
-        print('Error: data_type "{}" not recognized'.format(data_type))
-        return
-    f = TFile('rootfiles/ppg077spectra.root')
-    h = f.Get(hname)
-    return h2a(h)
+    dtypes = {'AuAu200MB': 'MB', 'pp200': 'PP'}
+    f = TFile('rootfiles/qm12dca.root')
+    dcaname = 'qm12{}dca{}'.format(dtypes[data_type], dca_ept_bin)
+    bkgname = 'qm12{}bkg{}'.format(dtypes[data_type], dca_ept_bin)
+    hdca = f.Get(dcaname)
+    hbkg = f.Get(bkgname)
+
+    assert isinstance(hdca, TH1)
+    assert isinstance(hbkg, TH1)
+
+    a = np.vstack((h2a(hdca),h2a(hbkg))).T
+    return a
 
 
 def dcadata_sim(dca_ept_bin, bfrac, dtype='MB'):
@@ -310,13 +320,26 @@ def dcadata_sim(dca_ept_bin, bfrac, dtype='MB'):
     for j, mu in enumerate(dproj[:, 0]):
         dproj[j, 0] = np.random.poisson(mu)
 
-    dproj[:, 1] = np.sqrt(dproj[:, 0])
-    # Add error column.
-    # dproj = np.hstack((dproj, np.sqrt(dproj)))
-    # TODO include background column? Maybe zeros for sims
+    # Background is zeros for now in simulation
+    dproj[:, 1] = np.zeros_like(dproj[:, 0])
     return dproj
+
+def eptdata_sim(bfrac, integral, dtype,):
+    ept_rd = eptdata(dtype)
+    ept = eptmat_proj(bfrac, axis=1)
+    ept *= integral / ept.sum()
+
+    for j, err in enumerate(ept_rd[:, 1]):
+        fe = err/ept_rd[j,0]
+        e = ept[j,0]*fe
+        ept[j, 0] += err*np.random.randn()
+        ept[j, 1] = err
+        
+    return ept
 
 
 if __name__ == '__main__':
+    np.set_printoptions(precision=3)
+
     # Generate csv files and plots with current settings
     project_and_save()

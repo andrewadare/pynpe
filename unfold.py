@@ -14,8 +14,9 @@ alpha = [0.2, 0.2] # Regularization parameters for [spectra, dca]
 nwalkers = 500
 nburnin = 1000
 nsteps = 500
-dtype = 'MC'  # 'AuAu200MB'  # 'pp200' 'MC'
+dtype = 'AuAu200MB'  # 'pp200' 'MC'
 bfrac = 0.0073
+dcares = {'AuAu200MB' : 0.007, 'pp200' : 0.01, 'MC' : 0.0}
 n_bfrac_pars = 7 if use_all_data else 1
 ndim = ui.nhpt + n_bfrac_pars
 c, b, f = ui.idx['c'], ui.idx['b'], ui.idx['f']
@@ -25,6 +26,14 @@ pdfdir = 'pdfs/' + dtype + '/'
 csvdir = 'csv/' + dtype + '/'
 if not os.path.isdir(pdfdir): os.makedirs(pdfdir)
 if not os.path.isdir(csvdir): os.makedirs(csvdir)
+
+if use_all_data:
+    print 'Using combined spectra + DCA datasets. Datatype:', dtype
+else:
+    print 'Using electron spectra only. Datatype:', dtype
+
+# Create text files for matrix creation (project_and_save() is idempotent).
+ui.project_and_save(dcares[dtype])
 
 # Weighted matrices - elements are joint probabilities
 eptmat = ui.eptmatrix()
@@ -47,6 +56,9 @@ dca = dca_py if dtype == 'MC' else [ui.dcadata(i, dtype) for i in range(6)]
 # Chop out rows matching excluded DCA bins
 subdca, subdcamat = ui.dca_subset(dca, dcamat, dtype)
 
+for i in range(6):
+    print subdca[i].shape, subdcamat[i].shape
+
 # Generated pythia inclusive hadron pt.
 # Used for MCMC initial point, for regularization, and for comparison to
 # result.
@@ -64,12 +76,12 @@ matlist = [eptmat]
 [matlist.append(m) for m in subdcamat]
 
 pf.plot_ept(0.1 * ept_mb, ept_pp, ept_py, pdfdir + 'ept-comparison.pdf')
-# sys.exit()
+
 #--------------------------------------------------------------------------
 # Run sampler
 #--------------------------------------------------------------------------
 # Set parameter limits - put in array with shape (ndim,2)
-hpt_parlimits = np.vstack((0.01 * gpt, 2.0 * gpt)).T
+hpt_parlimits = np.vstack((0.01 * gpt, 5.0 * gpt)).T
 bfrac_parlimits = np.vstack((1e-6 * np.ones(n_bfrac_pars),
                              (1. - 1e-6) * np.ones(n_bfrac_pars))).T
 parlimits = np.vstack((hpt_parlimits, bfrac_parlimits))
@@ -97,7 +109,7 @@ if use_all_data:
     print 'Computing initial likelihood estimates for balance factors...'
     ll_ept = np.zeros((nwalkers,))
     ll_dca = np.zeros((nwalkers,))
-    preds = [np.zeros((nwalkers,subdca[0].shape[0])) for i in range(6)]
+    preds = [np.zeros((nwalkers,subdca[i].shape[0])) for i in range(6)]
     for i in range(nwalkers):
         x = x0[i,:]
         ll_ept[i] = lnpmodels.l2_gaussian(x, matlist[0], datalist[0], 
@@ -105,7 +117,8 @@ if use_all_data:
         ll_dca[i] = lnpmodels.l2_poisson_shape(x, matlist[1:], datalist[1:], 
                                             gpt, alpha[1], parlimits, L)
         for j in range(6):
-            preds[j][i,:] = lnpmodels.l2_poisson_shape.prediction[j,:]
+            p = lnpmodels.l2_poisson_shape.prediction[j,:preds[j].shape[1]]
+            preds[j][i,:] = p
 
     le, ld = np.mean(ll_ept), np.mean(ll_dca)
     eptw, dcaw = ld/(le+ld), le/(le+ld)
@@ -114,9 +127,11 @@ if use_all_data:
     print 'Spectrum weight factor:', eptw
     print 'DCA weight factor:', dcaw
 
+    # Write out initial predictions for watch_predictions.py animation
     for i in range(6):
         np.savetxt('csv/preds{}.csv'.format(i), preds[i], 
                    fmt='%.2f', delimiter=',')
+    # sys.exit()
     fcn = lnpmodels.logp_ept_dca
     dataweights = (eptw, dcaw)
     args = (matlist, datalist, dataweights, gpt, alpha, parlimits, L)
@@ -186,12 +201,17 @@ if use_all_data:
         cfold[i] *= (1-bf) / cfold[i].sum()
         bfold[i] *= bf / bfold[i].sum()
         hfold.append(cfold[i] + bfold[i])
+        # datasum = dca[i][:48,0].sum() + dca[i][52:,0].sum()
+        # foldsum = hfold[i][:48].sum() + hfold[i][52:].sum()
 
-        datasum = dca[i][:48,0].sum() + dca[i][52:,0].sum()
-        foldsum = hfold[i][:48].sum() + hfold[i][52:].sum()
-        normfac = datasum / foldsum
+        datasum = dca[i][0,:].sum()
+        bkgsum  = dca[i][1,:].sum()
+        foldsum = hfold[i].sum()
+        normfac = (datasum - bkgsum) / foldsum
         # nf = dca[i][:,0].sum() / hfold[i].sum()
         hfold[i] *= normfac
         cfold[i] *= normfac
         bfold[i] *= normfac
+
+        hfold[i] += dca[i][1,:]
     pf.plotdca_fold(dca, cfold, bfold, hfold, pdfdir + 'dca-fold.pdf')
