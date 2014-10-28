@@ -9,10 +9,10 @@ import plotting_functions as pf
 #--------------------------------------------------------------------------
 # Setup/configuration
 #--------------------------------------------------------------------------
-use_all_data = False
-alpha = [0.2, 1.0] # Regularization parameters for [spectra, dca]
+use_all_data = True
+alpha = [0.2, 2.0] # Regularization parameters for [spectra, dca]
 nwalkers = 500
-nburnin = 1000
+nburnin = 2500
 nsteps = 500
 dtype = 'AuAu200MB'  # 'pp200' 'MC'
 bfrac = 1e-4 #0.0073
@@ -96,9 +96,11 @@ print("Initializing {} {}-dim walkers...".format(nwalkers, ndim))
 x0[:, c] = gpt[c] * (1 + 0.1 * np.random.randn(nwalkers, ui.ncpt))
 x0[:, b] = gpt[b] * (1 + 0.1 * np.random.randn(nwalkers, ui.nbpt))
 if use_all_data:
-    bfrac_prior = np.array(
-        [0.0137, 0.0343, 0.0737, 0.137, 0.246, 0.418, 0.0073])
-    x0[:, f] = bfrac_prior * (1 + 0.001 * np.random.randn(nwalkers, ui.nfb))
+    bfrac_prior = np.array([0.0137, 0.0343, 0.0737, 
+                           0.137, 0.246, 0.418, 0.0073])
+    x0[:, f] = bfrac_prior * (np.random.beta(2.,2.,(nwalkers, ui.nfb)))
+    # x0[:, f] = bfrac_prior * (1 + 0.001 * np.random.randn(nwalkers, ui.nfb))
+    # x0[:, f] = np.random.rand(nwalkers, ui.nfb)
 else:
     x0[:, -1] = bfrac * (1 + 0.1 * np.random.randn(nwalkers))
 
@@ -127,8 +129,8 @@ if use_all_data:
     print 'e DCA sum  ln(L) initial estimate:', ld, np.std(ll_dca)
 
     ### TEMPORARY
-    eptw = 0.5
-    dcaw = 0.5
+    eptw = 1e-20
+    dcaw = 1.0
 
     print 'Spectrum weight factor:', eptw
     print 'DCA weight factor:', dcaw
