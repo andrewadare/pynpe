@@ -9,8 +9,8 @@ import plotting_functions as pf
 #--------------------------------------------------------------------------
 # Setup/configuration
 #--------------------------------------------------------------------------
-use_all_data = True
-alpha = [0.2, 0.2] # Regularization parameters for [spectra, dca]
+use_all_data = False
+alpha = [0.2, 1.0] # Regularization parameters for [spectra, dca]
 nwalkers = 500
 nburnin = 1000
 nsteps = 500
@@ -178,6 +178,10 @@ print 'b/(b+c) fraction: {:.3g} + {:.3g} - {:.3g}'.format(*bf_int)
 ceptr = (1. - bf_int[0]) * np.dot(eptmat[:, c], pq[c, :])
 beptr = bf_int[0] * np.dot(eptmat[:, b], pq[b, :])
 heptr = ceptr + beptr
+bfspec = beptr / heptr
+bfspec[:,1] = beptr[:,1]/heptr[:,0] 
+bfspec[:,2] = beptr[:,2]/heptr[:,0] 
+
 pf.plotept_refold(ept, ceptr, beptr, heptr, pdfdir + 'ept_refold.pdf')
 pf.plot_bfrac_samples(samples[:, -1], bf_int, pdfdir + 'bfrac_dist.pdf')
 pf.plot_result(parlimits[:-1, :], x0[:, :-1], gpt, pq, pdfdir + 'hpt.pdf')
@@ -185,41 +189,31 @@ pf.plot_post_marg(samples[:, :-1], pdfdir + 'posterior.pdf')
 pf.plot_lnprob(sampler.flatlnprobability, pdfdir + 'lnprob.pdf')
 pf.plot_lnp_steps(sampler, nburnin, pdfdir + 'lnprob-vs-step.pdf')
 pf.plot_ept(0.1 * ept_mb, ept_pp, ept_py, pdfdir + 'ept-comparison.pdf')
-
+pf.plotbfrac(bfspec, None, pdfdir + 'bfrac-ept.pdf')
 
 if use_all_data:
     # Refold arrays have shape (neptx, 3). Cols: mid, ehi, elo
     bfracs = pq[f,:]
-    bfspec = beptr / heptr
     bfdca = bfracs[:-1, :]
     # Estimate error on bfspec - TODO: use something like BayesDivide
-    bfspec[:,1] = beptr[:,1]/heptr[:,0] 
-    bfspec[:,2] = beptr[:,2]/heptr[:,0] 
     pf.plotbfrac(bfspec, bfdca, pdfdir + 'bfrac.pdf')
     cfold = []
     bfold = []
     hfold = []
     for i, m in enumerate(dcamat):
         bf = pq[f[i], 0]
-        # cfold.append((1 - bf) * np.dot(m[:, c], gpt[c]))
-        # bfold.append(bf * np.dot(m[:, b], gpt[b]))
         cfold.append(np.dot(m[:, c], gpt[c]))
         bfold.append(np.dot(m[:, b], gpt[b]))
         cfold[i] *= (1-bf) / cfold[i].sum()
         bfold[i] *= bf / bfold[i].sum()
         hfold.append(cfold[i] + bfold[i])
-        # datasum = dca[i][:48,0].sum() + dca[i][52:,0].sum()
-        # foldsum = hfold[i][:48].sum() + hfold[i][52:].sum()
-
         datasum = dca[i][:,0].sum()
         bkgsum  = dca[i][:,1].sum()
         foldsum = hfold[i].sum()
         normfac = (datasum - bkgsum) / foldsum
-        # nf = dca[i][:,0].sum() / hfold[i].sum()
         hfold[i] *= normfac
         cfold[i] *= normfac
         bfold[i] *= normfac
-
         hfold[i] += dca[i][:,1]
 
     pf.plotdca_fold(dca, cfold, bfold, hfold, pdfdir + 'dca-fold.pdf')
