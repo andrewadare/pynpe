@@ -15,7 +15,7 @@ nwalkers = 500
 nburnin = 1000
 nsteps = 500
 dtype = 'AuAu200MB'  # 'pp200' 'MC'
-bfrac = 0.0073
+bfrac = 1e-4 #0.0073
 dcares = {'AuAu200MB' : 0.007, 'pp200' : 0.01, 'MC' : 0.0}
 n_bfrac_pars = 7 if use_all_data else 1
 ndim = ui.nhpt + n_bfrac_pars
@@ -42,30 +42,33 @@ dcamat = [ui.dcamatrix(i) for i in range(6)]
 # PHENIX data - (21 x 2) - column 0 (1) contains data (error).
 ept_mb = ui.eptdata('AuAu200MB')
 ept_pp = ui.eptdata('pp200')
-
-# Model data from pythia - fully self-consistent problem for testing
-# ept_py = ui.eptmat_proj(bfrac, axis=1)
 ept_py = ui.eptdata_sim(bfrac, ept_pp[:,0].sum(), 'pp200')
-dca_py = [ui.dcadata_sim(i, bfrac) for i in range(6)]
-# dca_py = [ui.dcamat_proj(i, bfrac, axis=1) for i in range(6)]
 
 # Set ept and dca to selected data type
-ept = ept_py if dtype == 'MC' else ui.eptdata(dtype)
-dca = dca_py if dtype == 'MC' else [ui.dcadata(i, dtype) for i in range(6)]
+ept, dca = None, []
+if dtype == 'MC':
+    ept = ept_py
+    dca = [ui.dcadata_sim(i, bfrac) for i in range(6)]
+elif dtype == 'AuAu200MB':
+    ept = ept_mb
+    dca = [ui.dcadata(i, dtype) for i in range(6)]
+elif dtype == 'pp200':
+    ept = ept_pp
+    dca = [ui.dcadata(i, dtype) for i in range(6)]
 
 # Chop out rows matching excluded DCA bins
 subdca, subdcamat = ui.dca_subset(dca, dcamat, dtype)
 
-for i in range(6):
-    print subdca[i].shape, subdcamat[i].shape
+# for i in range(6):
+#     print subdca[i].shape, subdcamat[i].shape
 
 # Generated pythia inclusive hadron pt.
 # Used for MCMC initial point, for regularization, and for comparison to
 # result.
 gpt = ui.genpt()
 
-# Normalize pythia spectra to PHENIX p+p data
-norm_factor = np.sum(ept_pp[:, 0]) / np.sum(ui.eptmat_proj(bfrac, axis=1)[:,0])
+# Normalize pythia spectra to data
+norm_factor = np.sum(ept[:, 0]) / np.sum(ui.eptmat_proj(bfrac, axis=1)[:,0])
 # ept_py *= norm_factor
 gpt *= norm_factor
 
@@ -75,13 +78,11 @@ datalist = [ept]
 matlist = [eptmat]
 [matlist.append(m) for m in subdcamat]
 
-pf.plot_ept(0.1 * ept_mb, ept_pp, ept_py, pdfdir + 'ept-comparison.pdf')
-
 #--------------------------------------------------------------------------
 # Run sampler
 #--------------------------------------------------------------------------
 # Set parameter limits - put in array with shape (ndim,2)
-hpt_parlimits = np.vstack((0.01 * gpt, 5.0 * gpt)).T
+hpt_parlimits = np.vstack((0.001 * gpt, 5.0 * gpt)).T
 bfrac_parlimits = np.vstack((1e-6 * np.ones(n_bfrac_pars),
                              (1. - 1e-6) * np.ones(n_bfrac_pars))).T
 parlimits = np.vstack((hpt_parlimits, bfrac_parlimits))
@@ -124,6 +125,11 @@ if use_all_data:
     eptw, dcaw = ld/(le+ld), le/(le+ld)
     print 'e spectrum ln(L) initial estimate:', le, np.std(ll_ept)
     print 'e DCA sum  ln(L) initial estimate:', ld, np.std(ll_dca)
+
+    ### TEMPORARY
+    eptw = 0.5
+    dcaw = 0.5
+
     print 'Spectrum weight factor:', eptw
     print 'DCA weight factor:', dcaw
 
@@ -178,7 +184,8 @@ pf.plot_result(parlimits[:-1, :], x0[:, :-1], gpt, pq, pdfdir + 'hpt.pdf')
 pf.plot_post_marg(samples[:, :-1], pdfdir + 'posterior.pdf')
 pf.plot_lnprob(sampler.flatlnprobability, pdfdir + 'lnprob.pdf')
 pf.plot_lnp_steps(sampler, nburnin, pdfdir + 'lnprob-vs-step.pdf')
-# pf.plot_ept(0.1 * ept_mb, ept_pp, ept_py, pdfdir + 'ept-comparison.pdf')
+pf.plot_ept(0.1 * ept_mb, ept_pp, ept_py, pdfdir + 'ept-comparison.pdf')
+
 
 if use_all_data:
     # Refold arrays have shape (neptx, 3). Cols: mid, ehi, elo
@@ -204,8 +211,8 @@ if use_all_data:
         # datasum = dca[i][:48,0].sum() + dca[i][52:,0].sum()
         # foldsum = hfold[i][:48].sum() + hfold[i][52:].sum()
 
-        datasum = dca[i][0,:].sum()
-        bkgsum  = dca[i][1,:].sum()
+        datasum = dca[i][:,0].sum()
+        bkgsum  = dca[i][:,1].sum()
         foldsum = hfold[i].sum()
         normfac = (datasum - bkgsum) / foldsum
         # nf = dca[i][:,0].sum() / hfold[i].sum()
@@ -213,5 +220,6 @@ if use_all_data:
         cfold[i] *= normfac
         bfold[i] *= normfac
 
-        hfold[i] += dca[i][1,:]
+        hfold[i] += dca[i][:,1]
+
     pf.plotdca_fold(dca, cfold, bfold, hfold, pdfdir + 'dca-fold.pdf')
