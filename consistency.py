@@ -20,51 +20,55 @@ eptmat = ui.eptmatrix()
 dcamat = [ui.dcamatrix(i) for i in range(6)]
 
 # Generated inclusive hadron pt and ideal data for consistency check
-gpt = ui.genpt()
+gpt = ui.genpt(bfrac)
 ept_ideal = ui.eptmat_proj(bfrac, axis=1)
 dca_ideal = [ui.dcamat_proj(i, bfrac, axis=1) for i in range(6)]
 dca = [ui.dcadata_sim(i, bfrac) for i in range(6)]
 
-if True:
+
+def dca_refold(gpt, dcamat, dca):
     c, b = ui.idx['c'], ui.idx['b']
     cfold, bfold, hfold = [], [], []
-    gc = (1. - bfrac) * gpt[c]
-    gb = bfrac * gpt[b]
     for i, m in enumerate(dcamat):
-        cf = np.dot(m[:, c], gc)
-        bf = np.dot(m[:, b], gb)
+        cf = np.dot(m[:, c], gpt[c])
+        bf = np.dot(m[:, b], gpt[b])
         hf = cf + bf
-
         scf = dca[i][:, 0].sum() / hf[:, 0].sum()
-
         cf *= scf
         bf *= scf
         hf *= scf
-
         cfold.append(cf)
         bfold.append(bf)
         hfold.append(hf)
+    bfrac = np.array([np.sum(bd) / np.sum(hd)
+                      for bd, hd in zip(bfold, hfold)])
+    return cfold, bfold, hfold, bfrac
 
-    # hfold = [c + b for c,b in zip(cfold, bfold)]
+
+def ept_refold(gpt, eptmat):
+    c, b = ui.idx['c'], ui.idx['b']
+    cfold = np.dot(eptmat[:, c], gpt[c])
+    bfold = np.dot(eptmat[:, b], gpt[b])
+    hfold = cfold + bfold
+    bfrac = bfold / hfold
+    return cfold, bfold, hfold, bfrac
+
+if True:
+    cfold, bfold, hfold, _ = dca_refold(gpt, dcamat, dca)
     pf.plotdca_fold(dca, cfold, bfold, hfold, 'pdfs/dca-fold.pdf')
-
-
-sys.exit()
 
 if True:
     c, b = ui.idx['c'], ui.idx['b']
 
     # B fraction from electron pt spectra
-    cfold_ept = (1 - bfrac) * np.dot(eptmat[:, c], gpt[c])
-    bfold_ept = bfrac * np.dot(eptmat[:, b], gpt[b])
-    hfold_ept = cfold_ept + bfold_ept
-    bfrac_ept = bfold_ept / hfold_ept
+    # cfold_ept = np.dot(eptmat[:, c], gpt[c])
+    # bfold_ept = np.dot(eptmat[:, b], gpt[b])
+    # hfold_ept = cfold_ept + bfold_ept
+    # bfrac_ept = bfold_ept / hfold_ept
+    cfe, bfe, hfe, bfrac_ept = ept_refold(gpt, eptmat)
+
     # B fraction from DCA distributions at different pt values
-    cfold_dca = [(1 - bfrac) * np.dot(m[:, c], gpt[c]) for m in dcamat]
-    bfold_dca = [bfrac * np.dot(m[:, b], gpt[b]) for m in dcamat]
-    hfold_dca = [cd + bd for cd, bd in zip(cfold_dca, bfold_dca)]
-    bfrac_dca = np.array([np.sum(bd) / np.sum(hd)
-                          for bd, hd in zip(bfold_dca, hfold_dca)])
+    cfold, bfold, hfold, bfrac_dca = dca_refold(gpt, dcamat, dca)
     pf.plotbfrac(bfrac_ept, None, 'pdfs/bfrac-fold.pdf')
     # pf.plotbfrac(bfrac_ept, bfrac_dca, 'pdfs/bfrac-fold.pdf')
 
@@ -77,11 +81,11 @@ if True:
 if True:
     c, b = ui.idx['c'], ui.idx['b']
     m = ui.eptmatrix(weighted=False)
-    cept = (1 - bfrac) * m[:, c].sum(axis=1)
-    bept = bfrac * m[:, b].sum(axis=1)
-    cfold = (1 - bfrac) * np.dot(eptmat[:, c], gpt[c])
-    bfold = bfrac * np.dot(eptmat[:, b], gpt[b])
-    hfold = cfold_ept + bfold_ept
+    cept = (1-bfrac)*m[:, c].sum(axis=1)
+    bept = bfrac*m[:, b].sum(axis=1)
+    cfold = np.dot(eptmat[:, c], gpt[c])
+    bfold = np.dot(eptmat[:, b], gpt[b])
+    hfold = cfold + bfold
     pf.plotept_fold(ept_ideal, cept, bept, cfold, bfold, hfold,
                     'pdfs/ept-fold.pdf')
 
