@@ -29,6 +29,7 @@ dca = [ui.dcadata_sim(i, bfrac) for i in range(6)]
 def dca_refold(gpt, dcamat, dca):
     c, b = ui.idx['c'], ui.idx['b']
     cfold, bfold, hfold = [], [], []
+    bfrac = np.zeros((len(dca),3))
     for i, m in enumerate(dcamat):
         cf = np.dot(m[:, c], gpt[c])
         bf = np.dot(m[:, b], gpt[b])
@@ -40,8 +41,10 @@ def dca_refold(gpt, dcamat, dca):
         cfold.append(cf)
         bfold.append(bf)
         hfold.append(hf)
-    bfrac = np.array([np.sum(bd) / np.sum(hd)
-                      for bd, hd in zip(bfold, hfold)])
+        bfrac[i,:] = np.sum(bf) / np.sum(hf)
+
+    # Make errors zero until I find time to compute them correctly...
+    bfrac[:,1:] *= 0.
     return cfold, bfold, hfold, bfrac
 
 
@@ -51,6 +54,8 @@ def ept_refold(gpt, eptmat):
     bfold = np.dot(eptmat[:, b], gpt[b])
     hfold = cfold + bfold
     bfrac = bfold / hfold
+    # Make errors zero until I find time to compute them correctly...
+    bfrac[:,1:] *= 0.
     return cfold, bfold, hfold, bfrac
 
 if True:
@@ -58,22 +63,12 @@ if True:
     pf.plotdca_fold(dca, cfold, bfold, hfold, 'pdfs/dca-fold.pdf')
 
 if True:
-    c, b = ui.idx['c'], ui.idx['b']
-
-    # B fraction from electron pt spectra
-    # cfold_ept = np.dot(eptmat[:, c], gpt[c])
-    # bfold_ept = np.dot(eptmat[:, b], gpt[b])
-    # hfold_ept = cfold_ept + bfold_ept
-    # bfrac_ept = bfold_ept / hfold_ept
     cfe, bfe, hfe, bfrac_ept = ept_refold(gpt, eptmat)
-
-    # B fraction from DCA distributions at different pt values
     cfold, bfold, hfold, bfrac_dca = dca_refold(gpt, dcamat, dca)
-    pf.plotbfrac(bfrac_ept, None, 'pdfs/bfrac-fold.pdf')
-    # pf.plotbfrac(bfrac_ept, bfrac_dca, 'pdfs/bfrac-fold.pdf')
-
+    pf.plotbfrac(bfrac_ept, bfrac_dca, 'pdfs/bfrac-fold.pdf')
 
 if True:
+    # gpt_counts = ui.genp(None) # No b fraction input here
     hpt_ideal = ui.eptmat_proj(bfrac, axis=0)
     hptd = [ui.dcamat_proj(i, bfrac, axis=0) for i in range(6)]
     pf.plothpt(gpt[:, 0], hpt_ideal[:, 0], hptd, 'pdfs/hpt-gen.pdf')
@@ -89,7 +84,7 @@ if True:
     pf.plotept_fold(ept_ideal, cept, bept, cfold, bfold, hfold,
                     'pdfs/ept-fold.pdf')
 
-if False:
+if True:
     c, b = ui.idx['c'], ui.idx['b']
     # Plot hpt -> ept matrices
     mmplot(eptmat[:, c], ui.cptx, ui.eptx, ui.cptbins, ui.eptbins,
