@@ -192,7 +192,10 @@ def h2a_rebin2d(h, newxbins, newybins, xbinshift=0, eps=1e-6):
 def genpt():
     chpt = np.loadtxt('csv/c_pt.csv', delimiter=',')
     bhpt = np.loadtxt('csv/b_pt.csv', delimiter=',')
-    return np.hstack((chpt, bhpt))
+    gpt = np.hstack((chpt, bhpt))
+    e = np.sqrt(gpt)
+    gpt = np.vstack((gpt, e, e)).T
+    return gpt
 
 
 def eptmatrix(weighted=True):
