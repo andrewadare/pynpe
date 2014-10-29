@@ -12,6 +12,8 @@ from matrixplotter import mmplot
 import unfold_input as ui
 import plotting_functions as pf
 
+np.set_printoptions(precision=3)
+
 bfrac = 0.007
 # Decay matrices - elements are joint probabilities
 eptmat = ui.eptmatrix()
@@ -36,10 +38,9 @@ if True:
     hfold_dca = [cd+bd for cd, bd in zip(cfold_dca, bfold_dca)]
     bfrac_dca = np.array([np.sum(bd) / np.sum(hd)
                           for bd, hd in zip(bfold_dca, hfold_dca)])
-    print 'bfrac_ept', bfrac_ept
-    print 'bfrac_dca', bfrac_dca
-    pf.plotbfrac(bfrac_ept, bfrac_dca, 'pdfs/bfrac-fold.pdf')
-sys.exit(0)
+    pf.plotbfrac(bfrac_ept, None, 'pdfs/bfrac-fold.pdf')
+    # pf.plotbfrac(bfrac_ept, bfrac_dca, 'pdfs/bfrac-fold.pdf')
+
 if True:
     c, b = ui.idx['c'], ui.idx['b']
     cfold = [(1 - bfrac) * np.dot(m[:, c], gpt[c]) for m in dcamat]
@@ -50,7 +51,8 @@ if True:
 if True:
     hpt_ideal = ui.eptmat_proj(bfrac, axis=0)
     hptd = [ui.dcamat_proj(i, bfrac, axis=0) for i in range(6)]
-    pf.plothpt(gpt, hpt_ideal[:, 0], hptd, 'pdfs/hpt-gen.pdf')
+    print hptd[0].shape
+    pf.plothpt(gpt[:,0], hpt_ideal[:, 0], hptd, 'pdfs/hpt-gen.pdf')
 
 if True:
     c, b = ui.idx['c'], ui.idx['b']
@@ -63,7 +65,7 @@ if True:
     pf.plotept_fold(ept_ideal, cept, bept, cfold, bfold, hfold,
                     'pdfs/ept-fold.pdf')
 
-if True:
+if False:
     c, b = ui.idx['c'], ui.idx['b']
     # Plot hpt -> ept matrices
     mmplot(eptmat[:,c], ui.cptx, ui.eptx, ui.cptbins, ui.eptbins,

@@ -13,7 +13,7 @@ def plot_ept(ept_mb, ept_pp, ept_py, figname='ept-comparison.pdf'):
 
     # PYTHIA model ept
     ax.errorbar(ui.eptx, ept_py[:, 0] / ui.eptw, yerr=ept_py[:, 1],
-                lw=2, ls='*', marker='o', ms=10, alpha=0.8,color='steelblue',
+                lw=2, ls='*', marker='o', ms=10, alpha=0.8, color='steelblue',
                 label=r'PYTHIA HF $e^{\pm}$ $p_T$')
 
     # PHENIX data
@@ -26,6 +26,7 @@ def plot_ept(ept_mb, ept_pp, ept_py, figname='ept-comparison.pdf'):
     ax.legend()
     fig.savefig(figname)
     return
+
 
 def plot_result(ylims, p0, gpt, pq, figname='hpt.pdf'):
     '''
@@ -40,7 +41,7 @@ def plot_result(ylims, p0, gpt, pq, figname='hpt.pdf'):
         w = ui.hptw[r]
         ax.set_yscale('log')
         ax.set_xlabel(r'{} hadron $p_T$ [GeV/c]'.format(cb))
-        ax.fill_between(ptx, ylims[r, 0] / w, ylims[r, 1] / w, 
+        ax.fill_between(ptx, ylims[r, 0] / w, ylims[r, 1] / w,
                         color='slategray', alpha=0.1)
         for i in range(p0.shape[0]):
             ax.plot(ptx, p0[i, r] / w, ls='*', marker='s',
@@ -126,13 +127,13 @@ def plotept_fold(ept, cept, bept, cfold, bfold, hfold,
     fig, ax = plt.subplots(figsize=(6, 7))
     ax.set_yscale('log')
     ax.set_xlabel(r'$e^{\pm}$ $p_T$ [GeV/c]')
-    ax.errorbar(ui.eptx, hfold / ui.eptw,  # yerr= [eptf_lo, eptf_hi],
+    ax.errorbar(ui.eptx, hfold[:,0] / ui.eptw,  # yerr= [eptf_lo, eptf_hi],
                 lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='crimson',
                 label=r'$A_{ept}$*hpt')
-    ax.errorbar(ui.eptx, cfold / ui.eptw,  # yerr= [eptf_lo, eptf_hi],
+    ax.errorbar(ui.eptx, cfold[:,0] / ui.eptw,  # yerr= [eptf_lo, eptf_hi],
                 lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='darkorange',
                 label=r'$A_{ept}$*cpt')
-    ax.errorbar(ui.eptx, bfold / ui.eptw,  # yerr= [eptf_lo, eptf_hi],
+    ax.errorbar(ui.eptx, bfold[:,0] / ui.eptw,  # yerr= [eptf_lo, eptf_hi],
                 lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='dodgerblue',
                 label=r'$A_{ept}$*bpt')
     # ax.errorbar(ui.eptx, eptmod/ui.eptw, yerr=ept_err,
@@ -190,14 +191,10 @@ def plotdca_fold(dca, cfold, bfold, hfold, figname='dca_fold.pdf'):
             s = r'{0:.1f}-{1:.1f} GeV/c'.format(
                 ui.dcaeptbins[i], ui.dcaeptbins[i + 1])
             a.text(0.55, 0.9, s, fontsize=8, transform=a.transAxes)
-            a.step(ui.dcax, hfold[i], lw=2, alpha=0.8, color='crimson')
-            a.step(ui.dcax, cfold[i], lw=1, alpha=0.8, color='darkorange')
-            a.step(ui.dcax, bfold[i], lw=1, alpha=0.8, color='dodgerblue')
-            if False:
-                a.step(ui.dcax, bkg[i], color='brown')
-            a.step(ui.dcax, dca[i][:,0], color='black', alpha=0.6)
-            if False:
-                a.step(ui.dcax, dcamod[i], color='red', alpha=0.6)
+            a.step(ui.dcax, hfold[i][:,0], lw=2, alpha=0.8, color='crimson')
+            a.step(ui.dcax, cfold[i][:,0], lw=1, alpha=0.8, color='darkorange')
+            a.step(ui.dcax, bfold[i][:,0], lw=1, alpha=0.8, color='dodgerblue')
+            a.step(ui.dcax, dca[i][:, 0], color='black', alpha=0.6)
     fig.savefig(figname, bbox_inches='tight')
     return
 
@@ -216,7 +213,7 @@ def plothpt(gpt, hpt, hptd, figname='hpt-gen.pdf'):
                 label=r'Generated HF hadrons')
         ax.plot(ptx, hpt[r] / w, 'o-', label=r'$h\to e \in$ [1,9] GeV/c')
         for i, d in enumerate(hptd):
-            ax.plot(ptx, d[r] / w, 'o-',
+            ax.plot(ptx, d[r,0] / w, 'o-',
                     label=r'$h\to e \in$ [{:.1f},{:.1f}] GeV/c'
                     .format(ui.dcaeptbins[i], ui.dcaeptbins[i + 1]))
     axes[0].legend(prop={'size': 10})
@@ -225,19 +222,23 @@ def plothpt(gpt, hpt, hptd, figname='hpt-gen.pdf'):
     return
 
 
-def plotbfrac(bfrac_ept, bfrac_dca, figname='bfrac.pdf'):
+def plotbfrac(bfrac_ept, bfrac_dca=None, figname='bfrac.pdf'):
     print("plotbfrac()")
     dcaeptx = ui.dcaeptbins[:-1] + 0.4 * np.diff(ui.dcaeptbins)
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.set_ylim([0., 1.])
     ax.set_xlabel(r'$e^{\pm}$ $p_T$ [GeV/c]')
     ax.set_ylabel(r'$b \to e / (b \to e + c \to e)$')
-    ax.errorbar(ui.eptx, bfrac_ept[:,0], yerr= [bfrac_ept[:,2],bfrac_ept[:,1]],
+    ax.errorbar(ui.eptx, bfrac_ept[:, 0],
+                yerr=[bfrac_ept[:, 2], bfrac_ept[:, 1]],
                 lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='crimson',
                 label=r'$h_{b}$ refold / $h_{c+b}$ refold')
-    ax.errorbar(dcaeptx, bfrac_dca[:,0], yerr= [bfrac_dca[:,2],bfrac_dca[:,1]],
-                lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='blue',
-                label=r'DCA unfold')
+
+    if bfrac_dca is not None:
+        ax.errorbar(dcaeptx, bfrac_dca[:, 0],
+                    yerr=[bfrac_dca[:, 2], bfrac_dca[:, 1]],
+                    lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='blue',
+                    label=r'DCA unfold')
     ax.legend(loc=2)
     fig.savefig(figname)
     return
