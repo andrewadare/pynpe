@@ -4,16 +4,16 @@ import emcee
 import lnpmodels
 import unfold_input as ui
 import plotting_functions as pf
-
+from refold import ept_refold, dca_refold
 
 #--------------------------------------------------------------------------
 # Setup/configuration
 #--------------------------------------------------------------------------
 use_all_data = True
-alpha = [0.2, 2.0] # Regularization parameters for [spectra, dca]
-nwalkers = 500
-nburnin = 2500
-nsteps = 500
+alpha = [0.2, 0.2] # Regularization parameters for [spectra, dca]
+nwalkers = 200
+nburnin = 50
+nsteps = 50
 dtype = 'AuAu200MB'  # 'pp200' 'MC'
 bfrac = 1e-4 #0.0073
 dcares = {'AuAu200MB' : 0.007, 'pp200' : 0.01, 'MC' : 0.0}
@@ -59,17 +59,14 @@ elif dtype == 'pp200':
 # Chop out rows matching excluded DCA bins
 subdca, subdcamat = ui.dca_subset(dca, dcamat, dtype)
 
-# for i in range(6):
-#     print subdca[i].shape, subdcamat[i].shape
-
 # Generated pythia inclusive hadron pt.
 # Used for MCMC initial point, for regularization, and for comparison to
 # result.
-gpt = ui.genpt()
+gpt_full = ui.genpt()
+gpt = gpt_full[:,0] # Extract column with data, leaving out errors.
 
 # Normalize pythia spectra to data
 norm_factor = np.sum(ept[:, 0]) / np.sum(ui.eptmat_proj(bfrac, axis=1)[:,0])
-# ept_py *= norm_factor
 gpt *= norm_factor
 
 # Create a combined electron pt + electron DCA data and matrix list
@@ -177,45 +174,21 @@ print 'b/(b+c) fraction: {:.3g} + {:.3g} - {:.3g}'.format(*bf_int)
 # Plot results
 #--------------------------------------------------------------------------
 
-ceptr = (1. - bf_int[0]) * np.dot(eptmat[:, c], pq[c, :])
-beptr = bf_int[0] * np.dot(eptmat[:, b], pq[b, :])
-heptr = ceptr + beptr
-bfspec = beptr / heptr
-bfspec[:,1] = beptr[:,1]/heptr[:,0] 
-bfspec[:,2] = beptr[:,2]/heptr[:,0] 
+pqtemp = pq[:20,:]
+ceptr, beptr, heptr, bfrac_ept = ept_refold(pqtemp, eptmat)
 
 pf.plotept_refold(ept, ceptr, beptr, heptr, pdfdir + 'ept_refold.pdf')
+pf.plotbfrac(bfrac_ept, None, pdfdir + 'bfrac-ept.pdf')
+
 pf.plot_bfrac_samples(samples[:, -1], bf_int, pdfdir + 'bfrac_dist.pdf')
 pf.plot_result(parlimits[:-1, :], x0[:, :-1], gpt, pq, pdfdir + 'hpt.pdf')
 pf.plot_post_marg(samples[:, :-1], pdfdir + 'posterior.pdf')
 pf.plot_lnprob(sampler.flatlnprobability, pdfdir + 'lnprob.pdf')
 pf.plot_lnp_steps(sampler, nburnin, pdfdir + 'lnprob-vs-step.pdf')
 pf.plot_ept(0.1 * ept_mb, ept_pp, ept_py, pdfdir + 'ept-comparison.pdf')
-pf.plotbfrac(bfspec, None, pdfdir + 'bfrac-ept.pdf')
+
 
 if use_all_data:
-    # Refold arrays have shape (neptx, 3). Cols: mid, ehi, elo
-    bfracs = pq[f,:]
-    bfdca = bfracs[:-1, :]
-    # Estimate error on bfspec - TODO: use something like BayesDivide
-    pf.plotbfrac(bfspec, bfdca, pdfdir + 'bfrac.pdf')
-    cfold = []
-    bfold = []
-    hfold = []
-    for i, m in enumerate(dcamat):
-        bf = pq[f[i], 0]
-        cfold.append(np.dot(m[:, c], gpt[c]))
-        bfold.append(np.dot(m[:, b], gpt[b]))
-        cfold[i] *= (1-bf) / cfold[i].sum()
-        bfold[i] *= bf / bfold[i].sum()
-        hfold.append(cfold[i] + bfold[i])
-        datasum = dca[i][:,0].sum()
-        bkgsum  = dca[i][:,1].sum()
-        foldsum = hfold[i].sum()
-        normfac = (datasum - bkgsum) / foldsum
-        hfold[i] *= normfac
-        cfold[i] *= normfac
-        bfold[i] *= normfac
-        hfold[i] += dca[i][:,1]
-
-    pf.plotdca_fold(dca, cfold, bfold, hfold, pdfdir + 'dca-fold.pdf')
+    cdcar, bdcar, hdcar, bfrac_dca = dca_refold(pqtemp, dcamat, dca)
+    pf.plotdca_fold(dca, cdcar, bdcar, hdcar, pdfdir + 'dca-fold.pdf')
+    pf.plotbfrac(bfrac_ept, bfrac_dca, pdfdir + 'bfrac.pdf')
