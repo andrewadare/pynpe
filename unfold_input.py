@@ -32,7 +32,7 @@ dcax = dcabins[:-1] + dcaw / 2
 ncpt = len(cptx)
 nbpt = len(bptx)
 nhpt = len(hptx)
-nfb  = len(dcaeptbins)
+nfb = len(dcaeptbins)
 
 # Indices of c or b hadron points within parameter array.
 # idx['f'] = 0..6, where 0-5 are the dca ept indices and 6 is for ept.
@@ -52,6 +52,7 @@ maskranges_pp = np.array([
     [+0.01, +0.01, +0.01, +0.01, +0.01, +0.01],
     [+0.15, +0.15, +0.15, +0.15, +0.15, +0.15]])
 
+
 def dca_subset(dcalist, dcamatlist, dtype):
     '''
     Create subarrays excluding masked data - no gaps, dimensions are smaller.
@@ -60,15 +61,15 @@ def dca_subset(dcalist, dcamatlist, dtype):
     '''
     subdca = []
     subdcamat = []
-    for i,dfull in enumerate(dcalist):
+    for i, dfull in enumerate(dcalist):
         mfull = dcamatlist[i]
-        r = maskranges_mb if dtype=='AuAu200MB' else maskranges_pp
+        r = maskranges_mb if dtype == 'AuAu200MB' else maskranges_pp
         a = np.zeros((0, dfull.shape[1]))
         m = np.zeros((0, mfull.shape[1]))
-        for j,x in enumerate(dcabins[:-1]):
-            if (x > r[0,i] and x < r[1,i]) or (x > r[2,i] and x < r[3,i]):
-                a = np.vstack([a,dfull[j,:]])
-                m = np.vstack([m,mfull[j,:]])
+        for j, x in enumerate(dcabins[:-1]):
+            if (x > r[0, i] and x < r[1, i]) or (x > r[2, i] and x < r[3, i]):
+                a = np.vstack([a, dfull[j, :]])
+                m = np.vstack([m, mfull[j, :]])
         subdca.append(a)
         subdcamat.append(m)
     return subdca, subdcamat
@@ -133,15 +134,15 @@ def project_and_save(dcares=0.007, draw=False):
             hadca.SetXTitle('electron DCA [cm]')
             hadca.SetYTitle('{} hadron pt'.format(cb[i]))
 
-            a = h2a_rebin2d(hadca, dcabins, hbins, xbinshift = -1)
+            a = h2a_rebin2d(hadca, dcabins, hbins, xbinshift=-1)
 
             if dcares > 0:
-                # Apply convolution to columns of a, each column being the DCA 
+                # Apply convolution to columns of a, each column being the DCA
                 # distribution at hadron pt bin `col'.
                 ker = norm(loc=0.0, scale=dcares).pdf(dcax)
-                ker *= 1./ker.sum()
+                ker *= 1. / ker.sum()
                 for col in range(a.shape[1]):
-                    a[:,col] = np.convolve(a[:,col], ker, 'same')
+                    a[:, col] = np.convolve(a[:, col], ker, 'same')
 
             np.savetxt('csv/{}_to_dca_{}.csv'.format(cb[i], j),
                        a,
@@ -173,7 +174,8 @@ def h2a_rebin2d(h, newxbins, newybins, xbinshift=0, eps=1e-6):
             xhi = newxbins[i + 1] - eps
             yhi = newybins[j + 1] - eps
             ilo = np.max((h.GetXaxis().FindBin(xlo + eps) + xbinshift, 1))
-            ihi = np.min((h.GetXaxis().FindBin(xhi) + xbinshift, h.GetNbinsX()))
+            ihi = np.min(
+                (h.GetXaxis().FindBin(xhi) + xbinshift, h.GetNbinsX()))
             jlo = h.GetYaxis().FindBin(ylo + eps)
             jhi = h.GetYaxis().FindBin(yhi)
 
@@ -189,9 +191,12 @@ def h2a_rebin2d(h, newxbins, newybins, xbinshift=0, eps=1e-6):
     return a
 
 
-def genpt():
+def genpt(bfrac=None):
     chpt = np.loadtxt('csv/c_pt.csv', delimiter=',')
     bhpt = np.loadtxt('csv/b_pt.csv', delimiter=',')
+    if bfrac is not None:
+        chpt *= 1 - bfrac
+        bhpt *= bfrac
     gpt = np.hstack((chpt, bhpt))
     e = np.sqrt(gpt)
     gpt = np.vstack((gpt, e, e)).T
@@ -305,7 +310,7 @@ def dcadata(dca_ept_bin, data_type):
     assert isinstance(hdca, TH1)
     assert isinstance(hbkg, TH1)
 
-    a = np.vstack((h2a(hdca),h2a(hbkg))).T
+    a = np.vstack((h2a(hdca), h2a(hbkg))).T
     return a
 
 
@@ -327,17 +332,18 @@ def dcadata_sim(dca_ept_bin, bfrac, dtype='MB'):
     dproj[:, 1] = np.zeros_like(dproj[:, 0])
     return dproj
 
+
 def eptdata_sim(bfrac, integral, dtype,):
     ept_rd = eptdata(dtype)
     ept = eptmat_proj(bfrac, axis=1)
     ept *= integral / ept.sum()
 
     for j, err in enumerate(ept_rd[:, 1]):
-        fe = err/ept_rd[j,0]
-        e = ept[j,0]*fe
-        ept[j, 0] += err*np.random.randn()
+        fe = err / ept_rd[j, 0]
+        e = ept[j, 0] * fe
+        ept[j, 0] += err * np.random.randn()
         ept[j, 1] = err
-        
+
     return ept
 
 
