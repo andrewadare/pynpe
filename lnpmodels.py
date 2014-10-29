@@ -122,7 +122,6 @@ def logp_ept_dca(x, matlist, datalist, dataweights, x_prior, alpha, xlim, L):
     if (lp > -np.inf and dataweights[1] > 0.):
         lp += dataweights[1] * l2_poisson_shape(x, matlist[1:], datalist[1:],
                                                 x_prior, alpha[1], xlim, L)
-    # print lp
     return lp
 
 
@@ -149,11 +148,10 @@ def l2_gaussian(x, A, data, x_prior, alpha, xlim, L=None):
     if np.any(x < xlim[:, 0]) or np.any(x > xlim[:, 1]):
         return -np.inf
 
-    f = x[-1]
     c, b = ui.idx['c'], ui.idx['b']
 
     # Log likelihood
-    prediction = (1 - f) * np.dot(A[:, c], x[c]) + f * np.dot(A[:, b], x[b])
+    prediction = np.dot(A[:, c], x[c]) + np.dot(A[:, b], x[b])
 
     # Assuming data has diagonal covariance...
     icov_data = np.diag(1. / (data[:, 1] ** 2))
@@ -184,12 +182,11 @@ def l2_poisson_shape(x, matlist, datalist, x_prior, alpha, xlim, L=None):
     for A, data in zip(matlist, datalist):
 
         # Get b-fraction parameter for this dca, pt bin
-        f = x[ui.idx['f'][i]]
+        # f = x[ui.idx['f'][i]]
 
         # Calculate prediction from this sample vector x
-        cpred = np.dot(A[:, c], x[c])
-        bpred = np.dot(A[:, b], x[b])
-        pred = (1-f)*cpred/cpred.sum() + f*bpred/bpred.sum()
+        pred = np.dot(A[:, c], x[c]) + np.dot(A[:, b], x[b])
+        # pred = (1-f)*cpred/cpred.sum() + f*bpred/bpred.sum()
 
         # Scale predicted yield to match data signal
         scf = (np.sum(data[:, 0]) - np.sum(data[:,1])) / np.sum(pred)

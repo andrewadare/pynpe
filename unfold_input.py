@@ -32,13 +32,13 @@ dcax = dcabins[:-1] + dcaw / 2
 ncpt = len(cptx)
 nbpt = len(bptx)
 nhpt = len(hptx)
-nfb = len(dcaeptbins)
+# nfb = len(dcaeptbins)
 
 # Indices of c or b hadron points within parameter array.
 # idx['f'] = 0..6, where 0-5 are the dca ept indices and 6 is for ept.
 idx = {'c': np.arange(0, ncpt),
-       'b': np.arange(ncpt, ncpt + nbpt),
-       'f': np.arange(ncpt + nbpt, ncpt + nbpt + nfb)}
+       'b': np.arange(ncpt, ncpt + nbpt)}
+       # 'f': np.arange(ncpt + nbpt, ncpt + nbpt + nfb)}
 
 maskranges_mb = np.array([
     [0.04, 0.03, -0.15, -0.15, -0.15, -0.15],

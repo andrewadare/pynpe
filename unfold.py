@@ -11,15 +11,14 @@ from refold import ept_refold, dca_refold
 #--------------------------------------------------------------------------
 use_all_data = True
 alpha = [0.2, 0.2] # Regularization parameters for [spectra, dca]
-nwalkers = 200
-nburnin = 50
-nsteps = 50
+nwalkers = 500
+nburnin = 1500
+nsteps = 1000
 dtype = 'AuAu200MB'  # 'pp200' 'MC'
-bfrac = 1e-4 #0.0073
+bfrac = 0.007
 dcares = {'AuAu200MB' : 0.007, 'pp200' : 0.01, 'MC' : 0.0}
-n_bfrac_pars = 7 if use_all_data else 1
-ndim = ui.nhpt + n_bfrac_pars
-c, b, f = ui.idx['c'], ui.idx['b'], ui.idx['f']
+ndim = ui.nhpt
+c, b = ui.idx['c'], ui.idx['b']
 
 # Output locations
 pdfdir = 'pdfs/' + dtype + '/'
@@ -62,7 +61,7 @@ subdca, subdcamat = ui.dca_subset(dca, dcamat, dtype)
 # Generated pythia inclusive hadron pt.
 # Used for MCMC initial point, for regularization, and for comparison to
 # result.
-gpt_full = ui.genpt()
+gpt_full = ui.genpt(bfrac)
 gpt = gpt_full[:,0] # Extract column with data, leaving out errors.
 
 # Normalize pythia spectra to data
@@ -79,10 +78,11 @@ matlist = [eptmat]
 # Run sampler
 #--------------------------------------------------------------------------
 # Set parameter limits - put in array with shape (ndim,2)
-hpt_parlimits = np.vstack((0.001 * gpt, 5.0 * gpt)).T
-bfrac_parlimits = np.vstack((1e-6 * np.ones(n_bfrac_pars),
-                             (1. - 1e-6) * np.ones(n_bfrac_pars))).T
-parlimits = np.vstack((hpt_parlimits, bfrac_parlimits))
+parlimits = np.vstack((0.001 * gpt, 5.0 * gpt)).T
+# hpt_parlimits = np.vstack((0.001 * gpt, 5.0 * gpt)).T
+# bfrac_parlimits = np.vstack((1e-6 * np.ones(n_bfrac_pars),
+#                              (1. - 1e-6) * np.ones(n_bfrac_pars))).T
+# parlimits = np.vstack((hpt_parlimits, bfrac_parlimits))
 
 # Smoothing matrix
 L = np.hstack((lnpmodels.fd2(ui.ncpt), lnpmodels.fd2(ui.nbpt)))
@@ -92,21 +92,21 @@ x0 = np.zeros((nwalkers, ndim))
 print("Initializing {} {}-dim walkers...".format(nwalkers, ndim))
 x0[:, c] = gpt[c] * (1 + 0.1 * np.random.randn(nwalkers, ui.ncpt))
 x0[:, b] = gpt[b] * (1 + 0.1 * np.random.randn(nwalkers, ui.nbpt))
-if use_all_data:
-    bfrac_prior = np.array([0.0137, 0.0343, 0.0737, 
-                           0.137, 0.246, 0.418, 0.0073])
-    x0[:, f] = bfrac_prior * (np.random.beta(2.,2.,(nwalkers, ui.nfb)))
-    # x0[:, f] = bfrac_prior * (1 + 0.001 * np.random.randn(nwalkers, ui.nfb))
-    # x0[:, f] = np.random.rand(nwalkers, ui.nfb)
-else:
-    x0[:, -1] = bfrac * (1 + 0.1 * np.random.randn(nwalkers))
+# if use_all_data:
+#     bfrac_prior = np.array([0.0137, 0.0343, 0.0737, 
+#                            0.137, 0.246, 0.418, 0.0073])
+#     x0[:, f] = bfrac_prior * (np.random.beta(2.,2.,(nwalkers, ui.nfb)))
+#     # x0[:, f] = bfrac_prior * (1 + 0.001 * np.random.randn(nwalkers, ui.nfb))
+#     # x0[:, f] = np.random.rand(nwalkers, ui.nfb)
+# else:
+#     x0[:, -1] = bfrac * (1 + 0.1 * np.random.randn(nwalkers))
 
 # Function returning values \propto posterior probability and arg tuple
 fcn, args = None, None
 
 if use_all_data:
     # Compute contribution to ln(L) from DCA vs electron pt using x0
-    print 'Computing initial likelihood estimates for balance factors...'
+    print 'Computing initial likelihood estimates...'
     ll_ept = np.zeros((nwalkers,))
     ll_dca = np.zeros((nwalkers,))
     preds = [np.zeros((nwalkers,subdca[i].shape[0])) for i in range(6)]
@@ -121,13 +121,11 @@ if use_all_data:
             preds[j][i,:] = p
 
     le, ld = np.mean(ll_ept), np.mean(ll_dca)
-    eptw, dcaw = ld/(le+ld), le/(le+ld)
     print 'e spectrum ln(L) initial estimate:', le, np.std(ll_ept)
     print 'e DCA sum  ln(L) initial estimate:', ld, np.std(ll_dca)
 
-    ### TEMPORARY
-    eptw = 1e-20
-    dcaw = 1.0
+    # eptw, dcaw = ld/(le+ld), le/(le+ld)
+    eptw, dcaw = 0.5, 0.5
 
     print 'Spectrum weight factor:', eptw
     print 'DCA weight factor:', dcaw
@@ -167,28 +165,27 @@ np.savetxt("{}pq_{}.csv".format(csvdir, dtype), pq, delimiter=",")
 
 # b fraction unfold pars: rows are output points. cols: mid, errhi, errlo
 # bf_int is integrated over electron pt \in 1-9 GeV/c
-bf_int = pq[-1, :]
-print 'b/(b+c) fraction: {:.3g} + {:.3g} - {:.3g}'.format(*bf_int)
+# bf_int = pq[-1, :]
+# print 'b/(b+c) fraction: {:.3g} + {:.3g} - {:.3g}'.format(*bf_int)
 
 #--------------------------------------------------------------------------
 # Plot results
 #--------------------------------------------------------------------------
 
-pqtemp = pq[:20,:]
-ceptr, beptr, heptr, bfrac_ept = ept_refold(pqtemp, eptmat)
+# pqtemp = pq[:20,:]
+ceptr, beptr, heptr, bfrac_ept = ept_refold(pq, eptmat)
 
 pf.plotept_refold(ept, ceptr, beptr, heptr, pdfdir + 'ept_refold.pdf')
 pf.plotbfrac(bfrac_ept, None, pdfdir + 'bfrac-ept.pdf')
 
-pf.plot_bfrac_samples(samples[:, -1], bf_int, pdfdir + 'bfrac_dist.pdf')
-pf.plot_result(parlimits[:-1, :], x0[:, :-1], gpt, pq, pdfdir + 'hpt.pdf')
-pf.plot_post_marg(samples[:, :-1], pdfdir + 'posterior.pdf')
+pf.plot_result(parlimits, x0, gpt, pq, pdfdir + 'hpt.pdf')
+pf.plot_post_marg(samples, pdfdir + 'posterior.pdf')
 pf.plot_lnprob(sampler.flatlnprobability, pdfdir + 'lnprob.pdf')
 pf.plot_lnp_steps(sampler, nburnin, pdfdir + 'lnprob-vs-step.pdf')
 pf.plot_ept(0.1 * ept_mb, ept_pp, ept_py, pdfdir + 'ept-comparison.pdf')
 
 
 if use_all_data:
-    cdcar, bdcar, hdcar, bfrac_dca = dca_refold(pqtemp, dcamat, dca)
+    cdcar, bdcar, hdcar, bfrac_dca = dca_refold(pq, dcamat, dca, add_bkg=True)
     pf.plotdca_fold(dca, cdcar, bdcar, hdcar, pdfdir + 'dca-fold.pdf')
     pf.plotbfrac(bfrac_ept, bfrac_dca, pdfdir + 'bfrac.pdf')
