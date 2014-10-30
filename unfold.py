@@ -12,13 +12,16 @@ from refold import ept_refold, dca_refold
 use_all_data = True
 alpha = [0.2, 0.2] # Regularization parameters for [spectra, dca]
 nwalkers = 500
-nburnin = 1500
+nburnin = 1000
 nsteps = 1000
 dtype = 'AuAu200MB'  # 'pp200' 'MC'
 bfrac = 0.007
 dcares = {'AuAu200MB' : 0.007, 'pp200' : 0.01, 'MC' : 0.0}
 ndim = ui.nhpt
 c, b = ui.idx['c'], ui.idx['b']
+
+csvi = 'csv/{}/1st-run/pq_{}.csv'.format(dtype, dtype)
+x_ini = np.loadtxt(csvi, delimiter=',')[:,0]
 
 # Output locations
 pdfdir = 'pdfs/' + dtype + '/'
@@ -78,11 +81,8 @@ matlist = [eptmat]
 # Run sampler
 #--------------------------------------------------------------------------
 # Set parameter limits - put in array with shape (ndim,2)
-parlimits = np.vstack((0.001 * gpt, 5.0 * gpt)).T
-# hpt_parlimits = np.vstack((0.001 * gpt, 5.0 * gpt)).T
-# bfrac_parlimits = np.vstack((1e-6 * np.ones(n_bfrac_pars),
-#                              (1. - 1e-6) * np.ones(n_bfrac_pars))).T
-# parlimits = np.vstack((hpt_parlimits, bfrac_parlimits))
+# parlimits = np.vstack((0.001 * gpt, 5.0 * gpt)).T
+parlimits = np.vstack((0.001 * x_ini, 5.0 * x_ini)).T
 
 # Smoothing matrix
 L = np.hstack((lnpmodels.fd2(ui.ncpt), lnpmodels.fd2(ui.nbpt)))
@@ -90,16 +90,10 @@ L = np.hstack((lnpmodels.fd2(ui.ncpt), lnpmodels.fd2(ui.nbpt)))
 # Ensemble of starting points for the walkers - shape (nwalkers, ndim)
 x0 = np.zeros((nwalkers, ndim))
 print("Initializing {} {}-dim walkers...".format(nwalkers, ndim))
-x0[:, c] = gpt[c] * (1 + 0.1 * np.random.randn(nwalkers, ui.ncpt))
-x0[:, b] = gpt[b] * (1 + 0.1 * np.random.randn(nwalkers, ui.nbpt))
-# if use_all_data:
-#     bfrac_prior = np.array([0.0137, 0.0343, 0.0737, 
-#                            0.137, 0.246, 0.418, 0.0073])
-#     x0[:, f] = bfrac_prior * (np.random.beta(2.,2.,(nwalkers, ui.nfb)))
-#     # x0[:, f] = bfrac_prior * (1 + 0.001 * np.random.randn(nwalkers, ui.nfb))
-#     # x0[:, f] = np.random.rand(nwalkers, ui.nfb)
-# else:
-#     x0[:, -1] = bfrac * (1 + 0.1 * np.random.randn(nwalkers))
+# x0[:, c] = gpt[c] * (1 + 0.1 * np.random.randn(nwalkers, ui.ncpt))
+# x0[:, b] = gpt[b] * (1 + 0.1 * np.random.randn(nwalkers, ui.nbpt))
+x0[:, c] = x_ini[c] * (1 + 0.1 * np.random.randn(nwalkers, ui.ncpt))
+x0[:, b] = x_ini[b] * (1 + 0.1 * np.random.randn(nwalkers, ui.nbpt))
 
 # Function returning values \propto posterior probability and arg tuple
 fcn, args = None, None
@@ -113,9 +107,9 @@ if use_all_data:
     for i in range(nwalkers):
         x = x0[i,:]
         ll_ept[i] = lnpmodels.l2_gaussian(x, matlist[0], datalist[0], 
-                                       gpt, alpha[0], parlimits, L)
+                                       x_ini, alpha[0], parlimits, L)
         ll_dca[i] = lnpmodels.l2_poisson_shape(x, matlist[1:], datalist[1:], 
-                                            gpt, alpha[1], parlimits, L)
+                                            x_ini, alpha[1], parlimits, L)
         for j in range(6):
             p = lnpmodels.l2_poisson_shape.prediction[j,:preds[j].shape[1]]
             preds[j][i,:] = p
@@ -126,7 +120,6 @@ if use_all_data:
 
     # eptw, dcaw = ld/(le+ld), le/(le+ld)
     eptw, dcaw = 0.5, 0.5
-
     print 'Spectrum weight factor:', eptw
     print 'DCA weight factor:', dcaw
 
@@ -137,13 +130,11 @@ if use_all_data:
     # sys.exit()
     fcn = lnpmodels.logp_ept_dca
     dataweights = (eptw, dcaw)
-    args = (matlist, datalist, dataweights, gpt, alpha, parlimits, L)
+    args = (matlist, datalist, dataweights, x_ini, alpha, parlimits, L)
 else:
     fcn = lnpmodels.l2_gaussian
-    args = (eptmat, ept, gpt, alpha[0], parlimits, L)
-    # Poisson likelihood model
-    # fcn = lnpmodels.l2_poisson
-    # args = [eptmat, ept[:,0], gpt, alpha[0], ymin, ymax, L]
+    args = (eptmat, ept, x_ini, alpha[0], parlimits, L)
+
 sampler = emcee.EnsembleSampler(nwalkers, ndim, fcn, args=args, threads=2)
 
 print("Burning in for {} steps...".format(nburnin))
