@@ -27,8 +27,11 @@ def dca_refold(gpt, dcamat, dca, add_bkg=False):
         bs = bf.sum(axis=0)[0]
         cs = cf.sum(axis=0)[0]
         df = 1. / (cs + bs) ** 2 * np.sqrt(cs * cs * bs + bs * bs * cs)
+        
         bfrac[i, 1] = df
         bfrac[i, 2] = df
+
+
 
     return cfold, bfold, hfold, bfrac
 
@@ -39,9 +42,19 @@ def ept_refold(gpt, eptmat):
     bfold = np.dot(eptmat[:, b], gpt[b])
     hfold = cfold + bfold
     bfrac = bfold / hfold
+    cf, bf, hf = cfold[:, 0], bfold[:, 0], hfold[:, 0] # center points (y)
+    cl, bl, hl = cfold[:, 2], bfold[:, 2], hfold[:, 2] # low error (dy)
 
-    # Error propagation
-    cf, bf = cfold[:, 0], bfold[:, 0]
+    # Don't allow lower limit of error bars to reach <= zero
+    r = cl >= cf # offending rows
+    cfold[r,2] = 0.999*cfold[r,0] 
+    r = bl >= bf
+    bfold[r,2] = 0.999*bfold[r,0] 
+    r = hl >= hf
+    hfold[r,2] = 0.999*hfold[r,0] 
+
+    # Propagate errors to b fraction
+    # TODO: limit upper error extent <= 1
     dc_hi, dc_lo = cfold[:, 1], cfold[:, 2]
     db_hi, db_lo = bfold[:, 1], bfold[:, 2]
     df_hi = 1. / (bf + cf) ** 2 * \
@@ -50,10 +63,10 @@ def ept_refold(gpt, eptmat):
         np.sqrt(cf * cf * db_lo * db_lo + bf * bf * dc_lo * dc_lo)
     bfrac[:, 1] = df_hi
     bfrac[:, 2] = df_lo
-
+    
     return cfold, bfold, hfold, bfrac
 
 
-if __name__ == '__main__':
-    pass
+# if __name__ == '__main__':
+#     pass
     # pq =

@@ -159,18 +159,18 @@ def plotept_refold(ept, cfold, bfold, hfold, figname='ept_refold.pdf'):
     fig, ax = plt.subplots(figsize=(6, 7))
     ax.set_yscale('log')
     ax.set_xlabel(r'$e^{\pm}$ $p_T$ [GeV/c]')
-    ax.errorbar(ui.eptx, hfold[:, 0] / ui.eptw, yerr=hfold[:, 1] / ui.eptw,
+    ax.errorbar(ui.eptx, hfold[:, 0] / ui.eptw, yerr=[hfold[:,2],hfold[:, 1]] / ui.eptw,
                 lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='crimson',
-                label=r'$h_{c+b}$ refold')
-    ax.errorbar(ui.eptx, cfold[:, 0] / ui.eptw, yerr=cfold[:, 1] / ui.eptw,
+                barsabove=True, label=r'$h_{c+b}$ refold')
+    ax.errorbar(ui.eptx, cfold[:, 0] / ui.eptw, yerr=[cfold[:, 2],cfold[:, 1]] / ui.eptw,
                 lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='darkorange',
-                label=r'$h_{c}$ refold')
-    ax.errorbar(ui.eptx, bfold[:, 0] / ui.eptw, yerr=bfold[:, 1] / ui.eptw,
+                barsabove=True, label=r'$h_{c}$ refold')
+    ax.errorbar(ui.eptx, bfold[:, 0] / ui.eptw, yerr=[bfold[:, 2],bfold[:, 1]] / ui.eptw,
                 lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='dodgerblue',
-                label=r'$h_{b}$ refold')
-    ax.errorbar(ui.eptx, ept[:, 0] / ui.eptw, yerr=ept[:, 1] / ui.eptw,
-                lw=2, ls='*', marker='o', color='limegreen',
-                label=r'$e^{\pm}$ $p_T$ data')
+                barsabove=True, label=r'$h_{b}$ refold')
+    ax.errorbar(ui.eptx, ept[:, 0] / ui.eptw, yerr=[ept[:, 1] ,ept[:, 1]] / ui.eptw,
+                lw=2, ls='*', marker='o', ms=8, color='limegreen',
+                barsabove=True, label=r'$e^{\pm}$ $p_T$ data')
     ax.legend()
     fig.savefig(figname)
     return
@@ -226,9 +226,10 @@ def plotbfrac(bfrac_ept, bfrac_dca=None, figname='bfrac.pdf'):
     print("plotbfrac()")
     dcaeptx = ui.dcaeptbins[:-1] + 0.4 * np.diff(ui.dcaeptbins)
     fig, ax = plt.subplots(figsize=(8, 6))
-    ax.set_ylim([0., 1.24])
+    ax.set_ylim([0., 1.29])
     ax.set_xlabel(r'$e^{\pm}$ $p_T$ [GeV/c]')
     ax.set_ylabel(r'$b \to e / (b \to e + c \to e)$')
+    ax.axhline(1.0, linestyle='--', color='black')
     ax.errorbar(ui.eptx, bfrac_ept[:, 0],
                 yerr=[bfrac_ept[:, 2], bfrac_ept[:, 1]],
                 lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='crimson',
