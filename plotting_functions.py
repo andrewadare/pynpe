@@ -226,7 +226,7 @@ def plotbfrac(bfrac_ept, bfrac_dca=None, figname='bfrac.pdf'):
     print("plotbfrac()")
     dcaeptx = ui.dcaeptbins[:-1] + 0.4 * np.diff(ui.dcaeptbins)
     fig, ax = plt.subplots(figsize=(8, 6))
-    ax.set_ylim([0., 1.])
+    ax.set_ylim([0., 1.24])
     ax.set_xlabel(r'$e^{\pm}$ $p_T$ [GeV/c]')
     ax.set_ylabel(r'$b \to e / (b \to e + c \to e)$')
     ax.errorbar(ui.eptx, bfrac_ept[:, 0],
