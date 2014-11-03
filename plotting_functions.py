@@ -66,7 +66,7 @@ def plot_bfrac_samples(samples, quantiles, figname='bfrac_samples.pdf'):
     fig.savefig(figname)
 
 
-def plot_post_marg(chain, figname='posterior.pdf'):
+def plot_post_marg(chain, xlim, figname='posterior.pdf'):
     # Draw posterior marginal distributions
     print("Marginalizing posterior distribution for summary plot...")
     nr, nc = 4, 5
@@ -76,7 +76,7 @@ def plot_post_marg(chain, figname='posterior.pdf'):
             i = nc * row + col
             a = axes[row, col]
             fc = 'yellow' if i < ui.ncpt else 'lime'
-            a.hist(chain[:, i], 100,
+            a.hist(chain[:, i], 100, range=(xlim[i, 0], xlim[i, 1]),
                    color='k', facecolor=fc, histtype='stepfilled')
             a.tick_params(axis='x', top='off', labelsize=4)
             a.tick_params(axis='y', left='off', right='off', labelsize=0)
@@ -127,13 +127,13 @@ def plotept_fold(ept, cept, bept, cfold, bfold, hfold,
     fig, ax = plt.subplots(figsize=(6, 7))
     ax.set_yscale('log')
     ax.set_xlabel(r'$e^{\pm}$ $p_T$ [GeV/c]')
-    ax.errorbar(ui.eptx, hfold[:,0] / ui.eptw,  # yerr= [eptf_lo, eptf_hi],
+    ax.errorbar(ui.eptx, hfold[:, 0] / ui.eptw,  # yerr= [eptf_lo, eptf_hi],
                 lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='crimson',
                 label=r'$A_{ept}$*hpt')
-    ax.errorbar(ui.eptx, cfold[:,0] / ui.eptw,  # yerr= [eptf_lo, eptf_hi],
+    ax.errorbar(ui.eptx, cfold[:, 0] / ui.eptw,  # yerr= [eptf_lo, eptf_hi],
                 lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='darkorange',
                 label=r'$A_{ept}$*cpt')
-    ax.errorbar(ui.eptx, bfold[:,0] / ui.eptw,  # yerr= [eptf_lo, eptf_hi],
+    ax.errorbar(ui.eptx, bfold[:, 0] / ui.eptw,  # yerr= [eptf_lo, eptf_hi],
                 lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='dodgerblue',
                 label=r'$A_{ept}$*bpt')
     # ax.errorbar(ui.eptx, eptmod/ui.eptw, yerr=ept_err,
@@ -159,16 +159,20 @@ def plotept_refold(ept, cfold, bfold, hfold, figname='ept_refold.pdf'):
     fig, ax = plt.subplots(figsize=(6, 7))
     ax.set_yscale('log')
     ax.set_xlabel(r'$e^{\pm}$ $p_T$ [GeV/c]')
-    ax.errorbar(ui.eptx, hfold[:, 0] / ui.eptw, yerr=[hfold[:,2],hfold[:, 1]] / ui.eptw,
+    ax.errorbar(ui.eptx, hfold[:, 0] / ui.eptw,
+                yerr=[hfold[:, 2], hfold[:, 1]] / ui.eptw,
                 lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='crimson',
                 barsabove=True, label=r'$h_{c+b}$ refold')
-    ax.errorbar(ui.eptx, cfold[:, 0] / ui.eptw, yerr=[cfold[:, 2],cfold[:, 1]] / ui.eptw,
+    ax.errorbar(ui.eptx, cfold[:, 0] / ui.eptw,
+                yerr=[cfold[:, 2], cfold[:, 1]] / ui.eptw,
                 lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='darkorange',
                 barsabove=True, label=r'$h_{c}$ refold')
-    ax.errorbar(ui.eptx, bfold[:, 0] / ui.eptw, yerr=[bfold[:, 2],bfold[:, 1]] / ui.eptw,
+    ax.errorbar(ui.eptx, bfold[:, 0] / ui.eptw,
+                yerr=[bfold[:, 2], bfold[:, 1]] / ui.eptw,
                 lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='dodgerblue',
                 barsabove=True, label=r'$h_{b}$ refold')
-    ax.errorbar(ui.eptx, ept[:, 0] / ui.eptw, yerr=[ept[:, 1] ,ept[:, 1]] / ui.eptw,
+    ax.errorbar(ui.eptx, ept[:, 0] / ui.eptw,
+                yerr=[ept[:, 1], ept[:, 1]] / ui.eptw,
                 lw=2, ls='*', marker='o', ms=8, color='limegreen',
                 barsabove=True, label=r'$e^{\pm}$ $p_T$ data')
     ax.legend()
@@ -185,16 +189,32 @@ def plotdca_fold(dca, cfold, bfold, hfold, figname='dca_fold.pdf'):
             i = nc * row + col
             a = axes[row, col]
             a.set_yscale('log')
-            a.set_ylim([1, 2 * np.max(dca[i])])
+            a.set_ylim([0.1, 2 * np.max(dca[i])])
             a.tick_params(axis='x', top='off', labelsize=6)
             a.tick_params(axis='y', labelsize=6)
             s = r'{0:.1f}-{1:.1f} GeV/c'.format(
                 ui.dcaeptbins[i], ui.dcaeptbins[i + 1])
             a.text(0.55, 0.9, s, fontsize=8, transform=a.transAxes)
-            a.step(ui.dcax, hfold[i][:,0], lw=2, alpha=0.8, color='crimson')
-            a.step(ui.dcax, cfold[i][:,0], lw=1, alpha=0.8, color='darkorange')
-            a.step(ui.dcax, bfold[i][:,0], lw=1, alpha=0.8, color='dodgerblue')
-            a.step(ui.dcax, dca[i][:, 0], color='black', alpha=0.6)
+            a.step(ui.dcax, hfold[i][:, 0], lw=2, alpha=0.8, color='crimson')
+            a.step(ui.dcax, 
+                   cfold[i][:, 0], 
+                   lw=2, 
+                   alpha=0.8, 
+                   color='darkorange')
+            a.step(ui.dcax, 
+                   bfold[i][:, 0], 
+                   lw=2, 
+                   alpha=0.8, 
+                   color='dodgerblue')
+            a.hist(ui.dcax,
+                   ui.dcabins,
+                   weights=dca[i][:, 0],
+                   log=True,
+                   color='white', #color='darkseagreen',
+                   edgecolor='black',
+                   alpha=1.0,
+                   linewidth=0.8,
+                   histtype='stepfilled')
     fig.savefig(figname, bbox_inches='tight')
     return
 
@@ -213,7 +233,7 @@ def plothpt(gpt, hpt, hptd, figname='hpt-gen.pdf'):
                 label=r'Generated HF hadrons')
         ax.plot(ptx, hpt[r] / w, 'o-', label=r'$h\to e \in$ [1,9] GeV/c')
         for i, d in enumerate(hptd):
-            ax.plot(ptx, d[r,0] / w, 'o-',
+            ax.plot(ptx, d[r, 0] / w, 'o-',
                     label=r'$h\to e \in$ [{:.1f},{:.1f}] GeV/c'
                     .format(ui.dcaeptbins[i], ui.dcaeptbins[i + 1]))
     axes[0].legend(prop={'size': 10})
