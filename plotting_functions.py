@@ -189,6 +189,7 @@ def plotdca_fold(dca, cfold, bfold, hfold, figname='dca_fold.pdf'):
             i = nc * row + col
             a = axes[row, col]
             a.set_yscale('log')
+            a.set_xlim([ui.dcabins[0], ui.dcabins[-1]])
             a.set_ylim([0.1, 2 * np.max(dca[i])])
             a.tick_params(axis='x', top='off', labelsize=6)
             a.tick_params(axis='y', labelsize=6)
