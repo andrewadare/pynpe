@@ -1,7 +1,7 @@
 import os, sys
 import numpy as np
 import emcee
-import lnpmodels
+import lnpmodels as lnp
 import unfold_input as ui
 import plotting_functions as pf
 from refold import ept_refold, dca_refold
@@ -9,8 +9,9 @@ from refold import ept_refold, dca_refold
 #--------------------------------------------------------------------------
 # Setup/configuration
 #--------------------------------------------------------------------------
+step = 0
 use_all_data = True
-alpha = [0.2, 0.2] # Regularization parameters for [spectra, dca]
+alpha = 0.2 # Regularization parameter
 nwalkers = 500
 nburnin = 1000
 nsteps = 1000
@@ -19,13 +20,12 @@ bfrac = 0.007
 dcares = {'AuAu200MB' : 0.007, 'pp200' : 0.01, 'MC' : 0.0}
 ndim = ui.nhpt
 c, b = ui.idx['c'], ui.idx['b']
-
-csvi = 'csv/{}/1st-run/pq_{}.csv'.format(dtype, dtype)
-x_ini = np.loadtxt(csvi, delimiter=',')[:,0]
+x_ini = None
 
 # Output locations
-pdfdir = 'pdfs/' + dtype + '/'
-csvdir = 'csv/' + dtype + '/'
+pdfdir = 'pdfs/{}/{}/'.format(dtype, step + 1)
+csvdir = 'csv/{}/{}/'.format(dtype, step + 1)
+
 if not os.path.isdir(pdfdir): os.makedirs(pdfdir)
 if not os.path.isdir(csvdir): os.makedirs(csvdir)
 
@@ -71,6 +71,12 @@ gpt = gpt_full[:,0] # Extract column with data, leaving out errors.
 norm_factor = np.sum(ept[:, 0]) / np.sum(ui.eptmat_proj(bfrac, axis=1)[:,0])
 gpt *= norm_factor
 
+if step == 0:
+    x_ini = gpt
+else:
+    csvi = 'csv/{}/{}/pq.csv'.format(dtype, step)
+    x_ini = np.loadtxt(csvi, delimiter=',')[:,0]
+
 # Create a combined electron pt + electron DCA data and matrix list
 datalist = [ept]
 [datalist.append(d) for d in subdca]
@@ -81,17 +87,14 @@ matlist = [eptmat]
 # Run sampler
 #--------------------------------------------------------------------------
 # Set parameter limits - put in array with shape (ndim,2)
-# parlimits = np.vstack((0.001 * gpt, 5.0 * gpt)).T
 parlimits = np.vstack((0.001 * x_ini, 5.0 * x_ini)).T
 
-# Smoothing matrix
-L = np.hstack((lnpmodels.fd2(ui.ncpt), lnpmodels.fd2(ui.nbpt)))
+# Matrix used to define seminorm for regularization
+L = np.hstack((lnp.fd2(ui.ncpt), lnp.fd2(ui.nbpt)))
 
 # Ensemble of starting points for the walkers - shape (nwalkers, ndim)
 x0 = np.zeros((nwalkers, ndim))
 print("Initializing {} {}-dim walkers...".format(nwalkers, ndim))
-# x0[:, c] = gpt[c] * (1 + 0.1 * np.random.randn(nwalkers, ui.ncpt))
-# x0[:, b] = gpt[b] * (1 + 0.1 * np.random.randn(nwalkers, ui.nbpt))
 x0[:, c] = x_ini[c] * (1 + 0.1 * np.random.randn(nwalkers, ui.ncpt))
 x0[:, b] = x_ini[b] * (1 + 0.1 * np.random.randn(nwalkers, ui.nbpt))
 
@@ -106,12 +109,12 @@ if use_all_data:
     preds = [np.zeros((nwalkers,subdca[i].shape[0])) for i in range(6)]
     for i in range(nwalkers):
         x = x0[i,:]
-        ll_ept[i] = lnpmodels.l2_gaussian(x, matlist[0], datalist[0], 
-                                       x_ini, alpha[0], parlimits, L)
-        ll_dca[i] = lnpmodels.l2_poisson_shape(x, matlist[1:], datalist[1:], 
-                                            x_ini, alpha[1], parlimits, L)
+        ll_ept[i] = lnp.l2_gaussian(x, matlist[0], datalist[0], 
+                                       x_ini, alpha, parlimits, L)
+        ll_dca[i] = lnp.l2_poisson_shape(x, matlist[1:], datalist[1:], 
+                                            x_ini, alpha, parlimits, L)
         for j in range(6):
-            p = lnpmodels.l2_poisson_shape.prediction[j,:preds[j].shape[1]]
+            p = lnp.dca_shape.prediction[j,:preds[j].shape[1]]
             preds[j][i,:] = p
 
     le, ld = np.mean(ll_ept), np.mean(ll_dca)
@@ -128,12 +131,12 @@ if use_all_data:
         np.savetxt('csv/preds{}.csv'.format(i), preds[i], 
                    fmt='%.2f', delimiter=',')
     # sys.exit()
-    fcn = lnpmodels.logp_ept_dca
+    fcn = lnp.logp_ept_dca
     dataweights = (eptw, dcaw)
     args = (matlist, datalist, dataweights, x_ini, alpha, parlimits, L)
 else:
-    fcn = lnpmodels.l2_gaussian
-    args = (eptmat, ept, x_ini, alpha[0], parlimits, L)
+    fcn = lnp.l2_gaussian
+    args = (eptmat, ept, x_ini, alpha, parlimits, L)
 
 sampler = emcee.EnsembleSampler(nwalkers, ndim, fcn, args=args, threads=2)
 
@@ -152,18 +155,11 @@ samples = sampler.chain.reshape((-1, ndim))
 pq = map(lambda v: (v[1], v[2] - v[1], v[1] - v[0]),
          zip(*np.percentile(samples, [16, 50, 84], axis=0)))
 pq = np.array(pq)
-np.savetxt("{}pq_{}.csv".format(csvdir, dtype), pq, delimiter=",")
-
-# b fraction unfold pars: rows are output points. cols: mid, errhi, errlo
-# bf_int is integrated over electron pt \in 1-9 GeV/c
-# bf_int = pq[-1, :]
-# print 'b/(b+c) fraction: {:.3g} + {:.3g} - {:.3g}'.format(*bf_int)
+np.savetxt("{}pq.csv".format(csvdir), pq, delimiter=",")
 
 #--------------------------------------------------------------------------
 # Plot results
 #--------------------------------------------------------------------------
-
-# pqtemp = pq[:20,:]
 ceptr, beptr, heptr, bfrac_ept = ept_refold(pq, eptmat)
 
 pf.plotept_refold(ept, ceptr, beptr, heptr, pdfdir + 'ept_refold.pdf')
@@ -174,7 +170,6 @@ pf.plot_post_marg(samples, pdfdir + 'posterior.pdf')
 pf.plot_lnprob(sampler.flatlnprobability, pdfdir + 'lnprob.pdf')
 pf.plot_lnp_steps(sampler, nburnin, pdfdir + 'lnprob-vs-step.pdf')
 pf.plot_ept(0.1 * ept_mb, ept_pp, ept_py, pdfdir + 'ept-comparison.pdf')
-
 
 if use_all_data:
     cdcar, bdcar, hdcar, bfrac_dca = dca_refold(pq, dcamat, dca, add_bkg=True)
