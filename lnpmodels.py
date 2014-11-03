@@ -1,8 +1,9 @@
 import numpy as np
 from scipy.special import gammaln
 import unfold_input as ui
-np.set_printoptions(precision=3)
-np.set_printoptions(suppress=True) # suppress exponents on small numbers
+
+# np.set_printoptions(precision=3)
+# np.set_printoptions(suppress=True) # suppress exponents on small numbers
 
 def lngamma(x, a, b):
     '''
@@ -82,47 +83,47 @@ def fd2(ndim, disc=None):
 # -----------------------------------------------
 
 
-def gaussian_poisson(x, A, b, icov_data, x_prior, icov_prior):
-    '''
-    Gaussian prior; Poisson likelihood
-    '''
-    return lngauss(x, x_prior, icov_prior) + lnpoiss(b, np.dot(A, x))
+# def gaussian_poisson(x, A, b, icov_data, x_prior, icov_prior):
+#     '''
+#     Gaussian prior; Poisson likelihood
+#     '''
+#     return lngauss(x, x_prior, icov_prior) + lnpoiss(b, np.dot(A, x))
 
 
-def gamma_poisson(x, A, b, icov_data, x_prior, gamma_a, gamma_b):
-    '''
-    Gamma prior; Poisson likelihood
-    x_prior is a vector of prior means.
-    '''
-    return lngamma(x, gamma_a, gamma_b) + lnpoiss(b, np.dot(A, x))
+# def gamma_poisson(x, A, b, icov_data, x_prior, gamma_a, gamma_b):
+#     '''
+#     Gamma prior; Poisson likelihood
+#     x_prior is a vector of prior means.
+#     '''
+#     return lngamma(x, gamma_a, gamma_b) + lnpoiss(b, np.dot(A, x))
 
 
-def gaussian_gaussian(x, A, b, icov_data, x_prior, icov_prior, alpha,
-                      xmin, xmax, L=None):
-    '''
-    Gaussian prior; Gaussian likelihood
-    '''
-    if np.any(x < xmin) or np.any(x > xmax):
-        return -np.inf
+# def gaussian_gaussian(x, A, b, icov_data, x_prior, icov_prior, alpha,
+#                       xmin, xmax, L=None):
+#     '''
+#     Gaussian prior; Gaussian likelihood
+#     '''
+#     if np.any(x < xmin) or np.any(x > xmax):
+#         return -np.inf
 
-    log_prior = lngauss(x, x_prior, icov_prior)
-    ll = lngauss(b, np.dot(A, x), icov_data)
+#     log_prior = lngauss(x, x_prior, icov_prior)
+#     ll = lngauss(b, np.dot(A, x), icov_data)
 
-    return log_prior + ll
+#     return log_prior + ll
 
 
-def logp_ept_dca(x, matlist, datalist, dataweights, x_prior, alpha, xlim, L):
+def logp_ept_dca(x, matlist, datalist, w, x_prior, alpha, xlim, L):
     '''
     Intended for use with electron pt model (data) as first element of 
     matlist (datalist), and electron DCA model/data as remaining elements.
     '''
-    lp = dataweights[0] * l2_gaussian(x, matlist[0], datalist[0],
-                                      x_prior, alpha[0], xlim, L)
+    if np.any(x < xlim[:, 0]) or np.any(x > xlim[:, 1]):
+        return -np.inf
 
-    if (lp > -np.inf and dataweights[1] > 0.):
-        lp += dataweights[1] * l2_poisson_shape(x, matlist[1:], datalist[1:],
-                                                x_prior, alpha[1], xlim, L)
-    return lp
+    lp_ept = w[0] * mvn(x, matlist[0], datalist[0])
+    lp_dca = w[1] * dca_shape(x, matlist[1:], datalist[1:])
+
+    return lp_ept + lp_dca + l2reg(x, x_prior, alpha, L)
 
 
 def l2reg(x, x_prior, alpha, L=None):
@@ -138,6 +139,20 @@ def l2reg(x, x_prior, alpha, L=None):
     return -alpha * alpha * (np.dot(rc, rc) + np.dot(rb, rb))
 
 
+def mvn(x, A, data):
+    '''
+    Multivariate normal (Gaussian) log likelihood. 
+    x: trial solution
+    A: concatenated A_c, A_b matrices mapping x -> prediction
+    data: column 0 contains points, column 1 contains errors. 
+    Currently assumes data points are independent (diagonal covariance).
+    '''
+    c, b = ui.idx['c'], ui.idx['b']
+    prediction = np.dot(A[:, c], x[c]) + np.dot(A[:, b], x[b])
+    icov_data = np.diag(1. / (data[:, 1] ** 2))
+    return lngauss(data[:, 0], prediction, icov_data)
+
+
 def l2_gaussian(x, A, data, x_prior, alpha, xlim, L=None):
     '''
     L2 regularization; Gaussian likelihood
@@ -148,16 +163,39 @@ def l2_gaussian(x, A, data, x_prior, alpha, xlim, L=None):
     if np.any(x < xlim[:, 0]) or np.any(x > xlim[:, 1]):
         return -np.inf
 
+    return mvn(x, A, data) + l2reg(x, x_prior, alpha, L)
+
+
+def dca_shape(x, matlist, datalist):
+    '''
+    Poisson log likelihood. DCA prediction is scaled to integral of data.
+    x: trial solution (h_c, h_b invariant yields)
+    A: matrix mapping x -> DCA predictions
+    data: DCA dists for prediction to be compared against.
+        - column 0: inclusive data (signal + background).
+        - column 1: background. 
+    '''
     c, b = ui.idx['c'], ui.idx['b']
+    result = 0.0
+    i = 0
+    maxnpts = max([d.shape[0] for d in datalist])
+    dca_shape.prediction = np.zeros((len(datalist),maxnpts))
+    for A, data in zip(matlist, datalist):
 
-    # Log likelihood
-    prediction = np.dot(A[:, c], x[c]) + np.dot(A[:, b], x[b])
+        # Calculate prediction from this sample vector x
+        pred = np.dot(A[:, c], x[c]) + np.dot(A[:, b], x[b])
 
-    # Assuming data has diagonal covariance...
-    icov_data = np.diag(1. / (data[:, 1] ** 2))
-    lp = lngauss(data[:, 0], prediction, icov_data)
-    lp += l2reg(x, x_prior, alpha, L)
-    return lp 
+        # Scale predicted yield to match data signal, then add background
+        scf = (np.sum(data[:, 0]) - np.sum(data[:,1])) / np.sum(pred)
+        pred = pred*scf + data[:, 1]
+
+        # Store prediction for monitoring purposes
+        dca_shape.prediction[i,:pred.shape[0]] = pred
+
+        result += lnpoiss(data[:, 0], pred)
+        i += 1
+    return result
+dca_shape.prediction = None
 
 
 def l2_poisson_shape(x, matlist, datalist, x_prior, alpha, xlim, L=None):
@@ -171,68 +209,7 @@ def l2_poisson_shape(x, matlist, datalist, x_prior, alpha, xlim, L=None):
     '''
     if np.any(x < xlim[:, 0]) or np.any(x > xlim[:, 1]):
         return -np.inf
-
-    c, b = ui.idx['c'], ui.idx['b']
-    result = 0.0
-
-    i = 0
-
-    maxnpts = max([d.shape[0] for d in datalist])
-    l2_poisson_shape.prediction = np.zeros((len(datalist),maxnpts))
-    for A, data in zip(matlist, datalist):
-
-        # Get b-fraction parameter for this dca, pt bin
-        # f = x[ui.idx['f'][i]]
-
-        # Calculate prediction from this sample vector x
-        pred = np.dot(A[:, c], x[c]) + np.dot(A[:, b], x[b])
-        # pred = (1-f)*cpred/cpred.sum() + f*bpred/bpred.sum()
-
-        # Scale predicted yield to match data signal
-        scf = (np.sum(data[:, 0]) - np.sum(data[:,1])) / np.sum(pred)
-        pred *= scf
-
-        # Add data background vector to prediction:
-        pred += data[:,1]
-
-        l2_poisson_shape.prediction[i,:pred.shape[0]] = pred
-
-        result += lnpoiss(data[:, 0], pred)
-        i += 1
-    return result + l2reg(x, x_prior, alpha, L)
-l2_poisson_shape.prediction = None
-
-
-def l2_poisson(x, A, b, x_prior, alpha, xmin, xmax, L=None):
-    '''
-    2-norm of (L*) x/x_prior; Poisson likelihood
-    Useful options for L:
-    1. Unit matrix (standard-form Tikhonov regularization). Default if no L.
-    2. A smoothing matrix (like fd2 above) for general-form Tikhonov reg.  
-    '''
-    if np.any(x < xmin) or np.any(x > xmax):
-        return -np.inf
-
-    xr = x / x_prior
-    if L is not None:
-        xr = np.dot(L, xr)
-
-    xr = xr[1:-1]  # Truncate to exclude boundary points
-
-    return -alpha * alpha * np.dot(xr, xr) + lnpoiss(b, np.dot(A, x))
-
-def l2_poisson_combined(x, Alist, blist, x_prior, alpha, xmin, xmax, L=None):
-    '''
-    Intended for use with electron pt model (data) as first element of 
-    Alist (blist), and electron DCA model/data as remaining elements.
-    '''
-    ll_ept = l2_poisson(x, Alist[0], blist[0],
-                        x_prior, alpha, xmin, xmax, L)
-    ll_dca = 0.
-    if (ll_ept > -np.inf):
-        ll_dca = l2_poisson_shape(x, Alist[1:], blist[1:],
-                                  x_prior, alpha, xmin, xmax, L)
-    return ll_ept + 1e-3 * ll_dca
+    return dca_shape(x, matlist, datalist) + l2reg(x, x_prior, alpha, L)
 
 
 if __name__ == '__main__':
