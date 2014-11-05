@@ -54,16 +54,16 @@ def plot_result(ylims, p0, gpt, pq, figname='hpt.pdf'):
     fig.savefig(figname)
 
 
-def plot_bfrac_samples(samples, quantiles, figname='bfrac_samples.pdf'):
-    print("Plotting log probabilities...")
-    fig, ax = plt.subplots()
-    ax.set_xlabel('Sampled b/(b+c) values')
-    ax.set_ylabel('samples')
-    ax.hist(samples, 100, color='k', facecolor='RosyBrown',
-            alpha=0.5, histtype='stepfilled')
-    ax.text(0.05, 0.95, r'{:.2g} +{:.2g} -{:.2g}'.format(*quantiles),
-            transform=ax.transAxes)
-    fig.savefig(figname)
+# def plot_bfrac_samples(samples, quantiles, figname='bfrac_samples.pdf'):
+#     print("Plotting log probabilities...")
+#     fig, ax = plt.subplots()
+#     ax.set_xlabel('Sampled b/(b+c) values')
+#     ax.set_ylabel('samples')
+#     ax.hist(samples, 100, color='k', facecolor='RosyBrown',
+#             alpha=0.5, histtype='stepfilled')
+#     ax.text(0.05, 0.95, r'{:.2g} +{:.2g} -{:.2g}'.format(*quantiles),
+#             transform=ax.transAxes)
+#     fig.savefig(figname)
 
 
 def plot_post_marg(chain, xlim, figname='posterior.pdf'):
@@ -136,13 +136,9 @@ def plotept_fold(ept, cept, bept, cfold, bfold, hfold,
     ax.errorbar(ui.eptx, bfold[:, 0] / ui.eptw,  # yerr= [eptf_lo, eptf_hi],
                 lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='dodgerblue',
                 label=r'$A_{ept}$*bpt')
-    # ax.errorbar(ui.eptx, eptmod/ui.eptw, yerr=ept_err,
-    #             lw=2, ls='*', marker='o', color='k',
-    #             label=r'$A_{ept}$*hptmod')
     ax.errorbar(ui.eptx, ept[:, 0] / ui.eptw, yerr=ept[:, 1] / ui.eptw,
                 lw=2, ls='*', marker='o', color='white',
                 label=r'$e^{\pm}$ $p_T$ data')
-
     ax.plot(ui.eptx, cept / ui.eptw, 'o', color='green',
             label=r'PYTHIA $c \to e^{\pm}$')
     ax.plot(ui.eptx, bept / ui.eptw, 'o', color='yellow',
@@ -211,7 +207,7 @@ def plotdca_fold(dca, cfold, bfold, hfold, figname='dca_fold.pdf'):
                    ui.dcabins,
                    weights=dca[i][:, 0],
                    log=True,
-                   color='white', #color='darkseagreen',
+                   color='white',
                    edgecolor='black',
                    alpha=1.0,
                    linewidth=0.8,
@@ -243,7 +239,7 @@ def plothpt(gpt, hpt, hptd, figname='hpt-gen.pdf'):
     return
 
 
-def plotbfrac(bfrac_ept, bfrac_dca=None, figname='bfrac.pdf'):
+def plotbfrac(bfrac_ept, bfrac_dca=None, fonll=None, figname='bfrac.pdf'):
     print("plotbfrac()")
     dcaeptx = ui.dcaeptbins[:-1] + 0.4 * np.diff(ui.dcaeptbins)
     fig, ax = plt.subplots(figsize=(8, 6))
@@ -251,6 +247,13 @@ def plotbfrac(bfrac_ept, bfrac_dca=None, figname='bfrac.pdf'):
     ax.set_xlabel(r'$e^{\pm}$ $p_T$ [GeV/c]')
     ax.set_ylabel(r'$b \to e / (b \to e + c \to e)$')
     ax.axhline(1.0, linestyle='--', color='black')
+
+    if fonll is not None:
+        ax.plot(fonll[:,0],fonll[:,1:],
+                color='k',
+                lw=4,
+                alpha=0.2)
+
     ax.errorbar(ui.eptx, bfrac_ept[:, 0],
                 yerr=[bfrac_ept[:, 2], bfrac_ept[:, 1]],
                 lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='crimson',
