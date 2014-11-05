@@ -14,8 +14,11 @@ import plotting_functions as pf
 from refold import dca_refold, ept_refold
 
 # np.set_printoptions(precision=3)
-
 bfrac = 0.007
+dcares = 0.01
+# Create text files for matrix creation (project_and_save() is idempotent).
+ui.project_and_save(dcares)
+
 # Decay matrices - elements are joint probabilities
 eptmat = ui.eptmatrix()
 dcamat = [ui.dcamatrix(i) for i in range(6)]
@@ -33,7 +36,10 @@ if True:
 if True:
     cfe, bfe, hfe, bfrac_ept = ept_refold(gpt, eptmat)
     cfold, bfold, hfold, bfrac_dca = dca_refold(gpt, dcamat, dca)
-    pf.plotbfrac(bfrac_ept, bfrac_dca, 'pdfs/bfrac-fold.pdf')
+    pf.plotbfrac(bfrac_ept,
+                 bfrac_dca,
+                 fonll=None,
+                 figname='pdfs/bfrac-fold.pdf')
 
 if True:
     # gpt_counts = ui.genp(None) # No b fraction input here
