@@ -49,10 +49,23 @@ def mmplot(mat, x, y, xbins, ybins,
     # Marginal distributions
     mx = np.sum(mat, axis=0)
     my = np.sum(mat, axis=1)
-    ax_margx.hist(x, bins=xbins, histtype='step', color='gray', lw=2, 
-                  weights=mx)
-    ax_margy.hist(y, bins=ybins, histtype='step', color='gray', lw=2, 
-                  weights=my, orientation='horizontal')
+    ax_margx.hist(x,
+                  bins=xbins,
+                  histtype='step',
+                  color='gray',
+                  lw=2,
+                  weights=mx,
+                  # bottom=mxmin,
+                  log=False)
+    ax_margy.hist(y,
+                  bins=ybins,
+                  histtype='step',
+                  color='gray',
+                  lw=2,
+                  weights=my,
+                  # bottom=mymin,
+                  orientation='horizontal',
+                  log=False)
     ax_margx.set_yscale('log')
     ax_margy.set_xscale('log')
 
