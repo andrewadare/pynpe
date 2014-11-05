@@ -3,11 +3,13 @@ import unfold_input as ui
 import plotting_functions as pf
 from refold import ept_refold, dca_refold
 
-dtype = 'AuAu200MB'  # 'pp200'
+dtype = 'pp200' # 'AuAu200MB', 'pp200'
+step = 3
 pdfdir = 'pdfs/test/'
+# pdfdir = 'pdfs/{}/{}/'.format(dtype, step + 1)
 
 # Get unfold results
-csv = 'csv/{}/pq_{}.csv'.format(dtype, dtype)
+csv = 'csv/{}/{}/pq.csv'.format(dtype, step)
 pq = np.loadtxt(csv, delimiter=',')
 
 eptmat = ui.eptmatrix()
@@ -22,11 +24,11 @@ dca = [ui.dcadata(i, dtype) for i in range(6)]
 ceptr, beptr, heptr, bfrac_ept = ept_refold(pq, eptmat)
 
 pf.plotept_refold(ept, ceptr, beptr, heptr, pdfdir + 'ept_refold.pdf')
-pf.plotbfrac(bfrac_ept, None, pdfdir + 'bfrac-ept.pdf')
+pf.plotbfrac(bfrac_ept, None, ui.fonll, pdfdir + 'bfrac-ept.pdf')
 
 cdcar, bdcar, hdcar, bfrac_dca = dca_refold(pq, dcamat, dca, add_bkg=True)
 pf.plotdca_fold(dca, cdcar, bdcar, hdcar, pdfdir + 'dca-fold.pdf')
-pf.plotbfrac(bfrac_ept, bfrac_dca, pdfdir + 'bfrac.pdf')
+pf.plotbfrac(bfrac_ept, bfrac_dca, ui.fonll, pdfdir + 'bfrac.pdf')
 
 # pf.plot_result(parlimits, x0, gpt, pq, pdfdir + 'hpt.pdf')
 # pf.plot_post_marg(samples, pdfdir + 'posterior.pdf')
