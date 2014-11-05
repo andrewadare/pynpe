@@ -38,7 +38,7 @@ nhpt = len(hptx)
 # idx['f'] = 0..6, where 0-5 are the dca ept indices and 6 is for ept.
 idx = {'c': np.arange(0, ncpt),
        'b': np.arange(ncpt, ncpt + nbpt)}
-       # 'f': np.arange(ncpt + nbpt, ncpt + nbpt + nfb)}
+# 'f': np.arange(ncpt + nbpt, ncpt + nbpt + nfb)}
 
 maskranges_mb = np.array([
     [0.04, 0.03, -0.15, -0.15, -0.15, -0.15],
@@ -52,6 +52,25 @@ maskranges_pp = np.array([
     [+0.01, +0.01, +0.01, +0.01, +0.01, +0.01],
     [+0.15, +0.15, +0.15, +0.15, +0.15, +0.15]])
 
+# Columns: electron pt, mid, high, low.
+fonll = np.array([[1.014536231, 0.0381860323, 0.1041675777, 0.0104167578],
+                  [1.240923602, 0.0588883544, 0.1422486553, 0.0172563082],
+                  [1.436874098, 0.0934971793, 0.1907639830, 0.0378974067],
+                  [1.647938077, 0.1280972581, 0.2531595749, 0.0551449687],
+                  [1.798600603, 0.1592600691, 0.3397997114, 0.0758385446],
+                  [1.964376613, 0.1904141339, 0.4160405825, 0.1000306118],
+                  [2.175230682, 0.2389032230, 0.4818559496, 0.1276599466],
+                  [2.401250711, 0.2839113132, 0.5407093191, 0.1552980277],
+                  [2.657497704, 0.3289019111, 0.5787729042, 0.1898193904],
+                  [3.004320637, 0.3807845367, 0.6168015044, 0.2312502733],
+                  [3.321074037, 0.4222678970, 0.6478506144, 0.2657366511],
+                  [3.773796300, 0.4671447938, 0.6788734858, 0.2898325097],
+                  [4.287077448, 0.5050422006, 0.6960685704, 0.3242576639],
+                  [4.830690515, 0.5359776097, 0.7200507281, 0.3414177636],
+                  [5.253553155, 0.5565662308, 0.7337035903, 0.3620326234],
+                  [5.721756243, 0.5771286133, 0.7472864827, 0.3757029781],
+                  [5.993641492, 0.5873879390, 0.7575458084, 0.3859972887]])
+
 
 def dca_subset(dcalist, dcamatlist, dtype):
     '''
@@ -63,7 +82,7 @@ def dca_subset(dcalist, dcamatlist, dtype):
     subdcamat = []
     for i, dfull in enumerate(dcalist):
         mfull = dcamatlist[i]
-        r = maskranges_mb if dtype == 'AuAu200MB' else maskranges_pp
+        r = maskranges_mb  # if dtype == 'AuAu200MB' else maskranges_pp
         a = np.zeros((0, dfull.shape[1]))
         m = np.zeros((0, mfull.shape[1]))
         for j, x in enumerate(dcabins[:-1]):
@@ -134,7 +153,7 @@ def project_and_save(dcares=0.007, draw=False):
             hadca.SetXTitle('electron DCA [cm]')
             hadca.SetYTitle('{} hadron pt'.format(cb[i]))
 
-            a = h2a_rebin2d(hadca, dcabins, hbins, xbinshift=-1)
+            a = h2a_rebin2d(hadca, dcabins, hbins, xbinshift=2)
 
             if dcares > 0:
                 # Apply convolution to columns of a, each column being the DCA
@@ -281,8 +300,7 @@ def eptdata(data_type):
 
     elif data_type == 'pp200':
         pts = d.xsec_pp[7:]
-        err = np.sqrt(
-            d.stat_pp[7:] * d.stat_pp[7:] + d.syst_pp[7:] * d.syst_pp[7:])
+        err = np.sqrt(d.stat_pp[7:] ** 2 + d.syst_pp[7:] ** 2)
 
         # Multiply by bin width
         pts *= np.diff(d.eptbins[7:])
