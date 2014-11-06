@@ -9,9 +9,9 @@ from refold import ept_refold, dca_refold
 #--------------------------------------------------------------------------
 # Setup/configuration
 #--------------------------------------------------------------------------
-step = 1 # 0: PYTHIA + bfrac used as priors. 1+: use previous output.
+step = 2 # 0: PYTHIA + bfrac used as priors. 1+: use previous output.
 bfrac = 0.007
-use_all_data = True
+use_all_data = False
 alpha = 0.2 # Regularization parameter
 nwalkers = 500
 nburnin = 1000
@@ -25,6 +25,10 @@ x_ini = None
 # Output locations
 pdfdir = 'pdfs/{}/{}/'.format(dtype, step + 1)
 csvdir = 'csv/{}/{}/'.format(dtype, step + 1)
+
+if use_all_data == False:
+    pdfdir = 'pdfs/spectra_only/{}/{}/'.format(dtype, step + 1)
+    csvdir = 'csv/spectra_only/{}/{}/'.format(dtype, step + 1)
 
 if not os.path.isdir(pdfdir): os.makedirs(pdfdir)
 if not os.path.isdir(csvdir): os.makedirs(csvdir)
