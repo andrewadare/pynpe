@@ -9,14 +9,14 @@ from refold import ept_refold, dca_refold
 #--------------------------------------------------------------------------
 # Setup/configuration
 #--------------------------------------------------------------------------
-step = 0
+step = 1 # 0: PYTHIA + bfrac used as priors. 1+: use previous output.
+bfrac = 0.007
 use_all_data = True
 alpha = 0.2 # Regularization parameter
 nwalkers = 500
 nburnin = 1000
 nsteps = 1000
-dtype = 'AuAu200MB'  # 'pp200' 'MC'
-bfrac = 0.007
+dtype = 'AuAu200MB' # 'AuAu200MB' 'pp200' 'MC'
 dcares = {'AuAu200MB' : 0.007, 'pp200' : 0.01, 'MC' : 0.0}
 ndim = ui.nhpt
 c, b = ui.idx['c'], ui.idx['b']
@@ -113,7 +113,7 @@ if use_all_data:
                                        x_ini, alpha, parlimits, L)
         ll_dca[i] = lnp.l2_poisson_shape(x, matlist[1:], datalist[1:], 
                                             x_ini, alpha, parlimits, L)
-        for j in range(6):
+        for j in range(lnp.dca_shape.prediction.shape[0]):
             p = lnp.dca_shape.prediction[j,:preds[j].shape[1]]
             preds[j][i,:] = p
 
@@ -161,17 +161,15 @@ np.savetxt("{}pq.csv".format(csvdir), pq, delimiter=",")
 # Plot results
 #--------------------------------------------------------------------------
 ceptr, beptr, heptr, bfrac_ept = ept_refold(pq, eptmat)
+cdcar, bdcar, hdcar, bfrac_dca = dca_refold(pq, dcamat, dca, add_bkg=True)
 
 pf.plotept_refold(ept, ceptr, beptr, heptr, pdfdir + 'ept_refold.pdf')
-pf.plotbfrac(bfrac_ept, None, pdfdir + 'bfrac-ept.pdf')
+pf.plotbfrac(bfrac_ept, None, ui.fonll, pdfdir + 'bfrac-ept.pdf')
 
 pf.plot_result(parlimits, x0, gpt, pq, pdfdir + 'hpt.pdf')
-pf.plot_post_marg(samples, pdfdir + 'posterior.pdf')
+pf.plot_post_marg(samples, parlimits, pdfdir + 'posterior.pdf')
 pf.plot_lnprob(sampler.flatlnprobability, pdfdir + 'lnprob.pdf')
 pf.plot_lnp_steps(sampler, nburnin, pdfdir + 'lnprob-vs-step.pdf')
 pf.plot_ept(0.1 * ept_mb, ept_pp, ept_py, pdfdir + 'ept-comparison.pdf')
-
-if use_all_data:
-    cdcar, bdcar, hdcar, bfrac_dca = dca_refold(pq, dcamat, dca, add_bkg=True)
-    pf.plotdca_fold(dca, cdcar, bdcar, hdcar, pdfdir + 'dca-fold.pdf')
-    pf.plotbfrac(bfrac_ept, bfrac_dca, pdfdir + 'bfrac.pdf')
+pf.plotdca_fold(dca, cdcar, bdcar, hdcar, pdfdir + 'dca-fold.pdf')
+pf.plotbfrac(bfrac_ept, bfrac_dca, ui.fonll, pdfdir + 'bfrac.pdf')

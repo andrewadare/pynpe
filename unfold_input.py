@@ -82,7 +82,7 @@ def dca_subset(dcalist, dcamatlist, dtype):
     subdcamat = []
     for i, dfull in enumerate(dcalist):
         mfull = dcamatlist[i]
-        r = maskranges_mb  # if dtype == 'AuAu200MB' else maskranges_pp
+        r = maskranges_mb if dtype == 'AuAu200MB' else maskranges_pp
         a = np.zeros((0, dfull.shape[1]))
         m = np.zeros((0, mfull.shape[1]))
         for j, x in enumerate(dcabins[:-1]):

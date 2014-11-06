@@ -15,7 +15,7 @@ def lngamma(x, a, b):
     return np.sum(a * np.log(b) - gammaln(a) + (a - 1) * np.log(x) - b * x)
 
 
-def lnpoiss(x, mu):
+def lnpoisson(x, mu):
     '''
     Multivariate log likelihood for Poisson(x|mu)
     '''
@@ -81,35 +81,6 @@ def fd2(ndim, disc=None):
 # Likelihood is p(b|A, x, prior pars)
 # Posterior is \propto prior*likelihood
 # -----------------------------------------------
-
-
-# def gaussian_poisson(x, A, b, icov_data, x_prior, icov_prior):
-#     '''
-#     Gaussian prior; Poisson likelihood
-#     '''
-#     return lngauss(x, x_prior, icov_prior) + lnpoiss(b, np.dot(A, x))
-
-
-# def gamma_poisson(x, A, b, icov_data, x_prior, gamma_a, gamma_b):
-#     '''
-#     Gamma prior; Poisson likelihood
-#     x_prior is a vector of prior means.
-#     '''
-#     return lngamma(x, gamma_a, gamma_b) + lnpoiss(b, np.dot(A, x))
-
-
-# def gaussian_gaussian(x, A, b, icov_data, x_prior, icov_prior, alpha,
-#                       xmin, xmax, L=None):
-#     '''
-#     Gaussian prior; Gaussian likelihood
-#     '''
-#     if np.any(x < xmin) or np.any(x > xmax):
-#         return -np.inf
-
-#     log_prior = lngauss(x, x_prior, icov_prior)
-#     ll = lngauss(b, np.dot(A, x), icov_data)
-
-#     return log_prior + ll
 
 
 def logp_ept_dca(x, matlist, datalist, w, x_prior, alpha, xlim, L):
@@ -192,7 +163,7 @@ def dca_shape(x, matlist, datalist):
         # Store prediction for monitoring purposes
         dca_shape.prediction[i,:pred.shape[0]] = pred
 
-        result += lnpoiss(data[:, 0], pred)
+        result += lnpoisson(data[:, 0], pred)
         i += 1
     return result
 dca_shape.prediction = None
