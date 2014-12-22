@@ -9,7 +9,7 @@ from refold import ept_refold, dca_refold
 #--------------------------------------------------------------------------
 # Setup/configuration
 #--------------------------------------------------------------------------
-step = 2 # 0: PYTHIA + bfrac used as priors. 1+: use previous output.
+step = 0 # 0: PYTHIA + bfrac used as priors. 1+: use previous output.
 bfrac = 0.007
 use_all_data = False
 alpha = 0.2 # Regularization parameter
