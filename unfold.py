@@ -8,14 +8,16 @@ import unfold_input as ui
 import plotting_functions as pf
 from refold import ept_refold, dca_refold
 
-def unfold(step=1, bfrac=0.007, use_all_data=True,
+def unfold(step=0, bfrac=0.007, use_all_data=True,
            dtype='AuAu200MB',
            dca_filename="rootfiles/run11DCA.root",
+           outdir='AuAu200MBTest',
            rand_ept=False):
 	'''
 	Run the unfold for a given set of input options
 	step := 0: PYTHIA + bfrac used as priors. 1+: use previous output.
 	dtype := 'AuAu200MB' 'pp200' 'MC'
+	outdir := output directory
 	dca_filename := file to get DCA data & backround from
 	rand_ept := False, use run11 epT data
 	            True, randomly sample from run 11 ept systematics
@@ -34,12 +36,12 @@ def unfold(step=1, bfrac=0.007, use_all_data=True,
 	x_ini = None
 
 	# Output locations
-	pdfdir = 'pdfs/{}/{}/'.format(dtype, step + 1)
-	csvdir = 'csv/{}/{}/'.format(dtype, step + 1)
+	pdfdir = 'pdfs/{}/{}/'.format(outdir, step + 1)
+	csvdir = 'csv/{}/{}/'.format(outdir, step + 1)
 
 	if use_all_data == False:
-	    pdfdir = 'pdfs/spectra_only/{}/{}/'.format(dtype, step + 1)
-	    csvdir = 'csv/spectra_only/{}/{}/'.format(dtype, step + 1)
+	    pdfdir = 'pdfs/spectra_only/{}/{}/'.format(outdir, step + 1)
+	    csvdir = 'csv/spectra_only/{}/{}/'.format(outdir, step + 1)
 	
 	if not os.path.isdir(pdfdir):
 	    os.makedirs(pdfdir)
@@ -198,4 +200,4 @@ if __name__ == '__main__':
     for arg in sys.argv:
     	print(arg)
     # Generate csv files and plots with current settings
-    # unfold()
+    unfold()
