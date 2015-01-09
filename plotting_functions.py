@@ -28,6 +28,26 @@ def plot_ept(ept_mb, ept_pp, ept_py, figname='ept-comparison.pdf'):
     return
 
 
+def plot_ept_syssample(ept_mb, ept_sys, figname='ept-syssample.pdf'):
+    print("ploteptsyssample()")
+
+    fig, ax = plt.subplots(figsize=(6, 7))
+    ax.set_yscale('log')
+    ax.set_xlabel(r'$e^{\pm}$ $p_T$ [GeV/c]')
+
+    # Plot the systematic variations
+    for i, epti in enumerate(ept_sys):
+        ax.plot(ui.eptx, epti[:, 0] / ui.eptw, ls='-',
+                color='deepskyblue', alpha=0.05)
+    # PHENIX data
+    ax.errorbar(ui.eptx, ept_mb[:, 0] / ui.eptw,  yerr=ept_mb[:, 1],
+                lw=2, ls='*', marker='s', ms=8, alpha=0.8, color='crimson',
+                label=r'Run 4 Au+Au $e^{\pm}$ $p_T$')
+    ax.legend()
+    fig.savefig(figname)
+    # return
+
+
 def plot_result(ylims, p0, gpt, pq, figname='hpt.pdf'):
     '''
     Draw prior, walkers, initial guess, and result.
@@ -193,15 +213,15 @@ def plotdca_fold(dca, cfold, bfold, hfold, figname='dca_fold.pdf'):
                 ui.dcaeptbins[i], ui.dcaeptbins[i + 1])
             a.text(0.55, 0.9, s, fontsize=8, transform=a.transAxes)
             a.step(ui.dcax, hfold[i][:, 0], lw=2, alpha=0.8, color='crimson')
-            a.step(ui.dcax, 
-                   cfold[i][:, 0], 
-                   lw=2, 
-                   alpha=0.8, 
+            a.step(ui.dcax,
+                   cfold[i][:, 0],
+                   lw=2,
+                   alpha=0.8,
                    color='darkorange')
-            a.step(ui.dcax, 
-                   bfold[i][:, 0], 
-                   lw=2, 
-                   alpha=0.8, 
+            a.step(ui.dcax,
+                   bfold[i][:, 0],
+                   lw=2,
+                   alpha=0.8,
                    color='dodgerblue')
             a.hist(ui.dcax,
                    ui.dcabins,
@@ -249,7 +269,7 @@ def plotbfrac(bfrac_ept, bfrac_dca=None, fonll=None, figname='bfrac.pdf'):
     ax.axhline(1.0, linestyle='--', color='black')
 
     if fonll is not None:
-        ax.plot(fonll[:,0],fonll[:,1:],
+        ax.plot(fonll[:, 0], fonll[:, 1:],
                 color='k',
                 lw=4,
                 alpha=0.2)
