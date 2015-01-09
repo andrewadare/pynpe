@@ -72,7 +72,10 @@ def unfold(step=0, bfrac=0.007, use_all_data=True,
 	    dca = [ui.dcadata_sim(i, bfrac) for i in range(6)]
 	elif dtype == 'AuAu200MB':
 	    ept = ept_mb
+	    print(" dca_filename={}".format(dca_filename))
 	    dca = [ui.dcadata(i, dtype, dca_filename) for i in range(6)]
+	    for i in range(6):
+		    print(dca[i][325:375,0])
 	elif dtype == 'pp200':
 	    ept = ept_pp
 	    dca = [ui.dcadata(i, dtype) for i in range(6)]
@@ -80,10 +83,16 @@ def unfold(step=0, bfrac=0.007, use_all_data=True,
 	# Chop out rows matching excluded DCA bins
 	subdca, subdcamat = ui.dca_subset(dca, dcamat, dtype)
 	
+	for d in dca:
+		print(" sum dca:{}".format(sum(d[:,0])))
 	for d in subdca:
-		print(" sum subdca:{}".format(d.sum()))
+		print(" sum subdca:{}".format(sum(d[:,0])))
 	for m in subdcamat:
 		print(" sum subdcamat:{}".format(m.sum()))
+	for d in dca:
+		print(" shape dca   : ({}, {})".format(d.shape[0], d.shape[1]))
+	for d in subdca:
+		print(" shape subdca: ({}, {})".format(d.shape[0], d.shape[1]))
 
 	# Generated pythia inclusive hadron pt.
 	# Used for MCMC initial point, for regularization, and for comparison to
