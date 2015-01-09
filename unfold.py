@@ -80,6 +80,11 @@ def unfold(step=0, bfrac=0.007, use_all_data=True,
 	# Chop out rows matching excluded DCA bins
 	subdca, subdcamat = ui.dca_subset(dca, dcamat, dtype)
 	
+	for d in subdca:
+		print(" sum subdca:{}".format(d.sum()))
+	for m in subdcamat:
+		print(" sum subdcamat:{}".format(m.sum()))
+
 	# Generated pythia inclusive hadron pt.
 	# Used for MCMC initial point, for regularization, and for comparison to
 	# result.
