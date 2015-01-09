@@ -280,18 +280,33 @@ def dcamat_proj(dca_ept_bin, bfrac, axis):
     return proj
 
 
-def eptdata(data_type):
+def eptdata(data_type, rand_syserr=False):
     '''
     Return 2-D numpy array of electron spectra.
     Column 0 contains data, column 1 contains stat error.
     data_type can be 'AuAu200MB' or 'pp200'.
     '''
-    d = ppg077data
+    d = reload(ppg077data)
     if data_type == 'AuAu200MB':
         pts = d.yinv_mb[7:]
         stat_err = 0.5 * (d.statlo_mb[7:] + d.stathi_mb[7:])
         syst_err = 0.5 * (d.syslo_mb[7:] + d.syshi_mb[7:])
-        err = np.sqrt(stat_err * syst_err)
+        err = np.sqrt(stat_err ** 2 + syst_err ** 2)
+
+        # randomly sample the systematic error if desired
+        if rand_syserr:
+            # Only use statistical error when shifting systematics
+            err = stat_err
+
+            # Generate the sigma at the given pt
+            # based on an overall global shift
+            # and a tilt about the center of the
+            # distribution
+            sig = (2 * eptx - (eptx[0] + eptx[-1])) / (eptx[0] - eptx[-1]) \
+                * np.random.normal() + np.random.normal()
+
+            # Shift the data by the systematic
+            pts = pts + sig * syst_err
 
         # Multiply by bin width
         pts *= np.diff(d.eptbins[7:])
@@ -312,16 +327,16 @@ def eptdata(data_type):
         return
 
 
-def dcadata(dca_ept_bin, data_type):
+def dcadata(dca_ept_bin, data_type, filename='rootfiles/run11DCA.root'):
     '''
     Return 1-D numpy array of electron DCA yields.
     data_type can be 'AuAu200MB' or 'pp200'.
     Column 0 is data, column 1 is background.
     '''
     dtypes = {'AuAu200MB': 'MB', 'pp200': 'PP'}
-    f = TFile('rootfiles/qm12dca.root')
-    dcaname = 'qm12{}dca{}'.format(dtypes[data_type], dca_ept_bin)
-    bkgname = 'qm12{}bkg{}'.format(dtypes[data_type], dca_ept_bin)
+    f = TFile(filename)
+    dcaname = 'run11{}dca{}'.format(dtypes[data_type], dca_ept_bin)
+    bkgname = 'run11{}bkg{}'.format(dtypes[data_type], dca_ept_bin)
     hdca = f.Get(dcaname)
     hbkg = f.Get(bkgname)
 
