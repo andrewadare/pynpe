@@ -10,7 +10,7 @@ from refold import ept_refold, dca_refold
 
 def unfold(step=0, bfrac=0.007, use_all_data=True,
            dtype='AuAu200MB',
-           dca_filename="rootfiles/run11DCA.root",
+           dca_filename='rootfiles/run11DCA.root',
            outdir='AuAu200MBTest',
            rand_ept=False):
 	'''
@@ -74,8 +74,6 @@ def unfold(step=0, bfrac=0.007, use_all_data=True,
 	    ept = ept_mb
 	    print(" dca_filename={}".format(dca_filename))
 	    dca = [ui.dcadata(i, dtype, dca_filename) for i in range(6)]
-	    for i in range(6):
-		    print(dca[i][325:375,0])
 	elif dtype == 'pp200':
 	    ept = ept_pp
 	    dca = [ui.dcadata(i, dtype) for i in range(6)]
