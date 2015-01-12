@@ -11,7 +11,8 @@ eptbins = np.array([1, 1.2, 1.4, 1.6, 1.8, 2, 2.2, 2.4, 2.6, 2.8, 3,
 cptbins = np.array([0., 1, 2, 3, 4, 5, 7, 9, 12, 15, 20])
 bptbins = cptbins
 hptbins = np.hstack((cptbins[:-1], cptbins[-1] + bptbins))
-dcabins = np.linspace(-0.2, 0.2, 101)
+# dcabins = np.linspace(-0.2, 0.2, 101) # for QM12
+dcabins = np.linspace(-0.7, 0.7, 701) # for Run 11
 
 # Bin width arrays
 eptw = np.diff(eptbins)
@@ -337,6 +338,8 @@ def dcadata(dca_ept_bin, data_type, filename='rootfiles/run11DCA.root'):
     f = TFile(filename)
     dcaname = 'run11{}dca{}'.format(dtypes[data_type], dca_ept_bin)
     bkgname = 'run11{}bkg{}'.format(dtypes[data_type], dca_ept_bin)
+    # dcaname = 'qm12{}dca{}'.format(dtypes[data_type], dca_ept_bin)
+    # bkgname = 'qm12{}bkg{}'.format(dtypes[data_type], dca_ept_bin)
     hdca = f.Get(dcaname)
     hbkg = f.Get(bkgname)
 
