@@ -95,7 +95,9 @@ def dca_subset(dcalist, dcamatlist, dtype):
     return subdca, subdcamat
 
 
-def project_and_save(dcares=0.007, draw=False):
+def project_and_save(dcares=np.full(len(dcaeptbins), 0.007),
+					 dcamean=np.full(len(dcaeptbins), 0.0),
+					 draw=False):
     '''
     How DCA_pt_template TH3Fs are binned
     ------------------------------------
@@ -156,10 +158,10 @@ def project_and_save(dcares=0.007, draw=False):
 
             a = h2a_rebin2d(hadca, dcabins, hbins, xbinshift=2)
 
-            if dcares > 0:
+            if dcares[j] > 0:
                 # Apply convolution to columns of a, each column being the DCA
                 # distribution at hadron pt bin `col'.
-                ker = norm(loc=0.0, scale=dcares).pdf(dcax)
+                ker = norm(loc=dcamean[j], scale=dcares[j]).pdf(dcax)
                 ker *= 1. / ker.sum()
                 for col in range(a.shape[1]):
                     a[:, col] = np.convolve(a[:, col], ker, 'same')
@@ -281,7 +283,7 @@ def dcamat_proj(dca_ept_bin, bfrac, axis):
     return proj
 
 
-def eptdata(data_type, rand_syserr=False):
+def eptdata(data_type, rand_syserr=False, err_type='SysStat'):
     '''
     Return 2-D numpy array of electron spectra.
     Column 0 contains data, column 1 contains stat error.
@@ -292,7 +294,12 @@ def eptdata(data_type, rand_syserr=False):
         pts = d.yinv_mb[7:]
         stat_err = 0.5 * (d.statlo_mb[7:] + d.stathi_mb[7:])
         syst_err = 0.5 * (d.syslo_mb[7:] + d.syshi_mb[7:])
-        err = np.sqrt(stat_err ** 2 + syst_err ** 2)
+        if err_type == 'Stat':
+        	print("Using statistical errors on electron spectra only")
+        	err = stat_err	
+        else:
+        	print("Using statistical+systematic errors on electron spectra")
+        	err = np.sqrt(stat_err ** 2 + syst_err ** 2)
 
         # randomly sample the systematic error if desired
         if rand_syserr:
