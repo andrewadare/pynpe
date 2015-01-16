@@ -25,6 +25,7 @@ def plot_ept(ept_mb, ept_pp, ept_py, figname='ept-comparison.pdf'):
                 label=r'Run 4 Au+Au $e^{\pm}$ $p_T$ (/10)')
     ax.legend()
     fig.savefig(figname)
+    plt.close(fig)
     return
 
 
@@ -38,14 +39,15 @@ def plot_ept_syssample(ept_mb, ept_sys, figname='ept-syssample.pdf'):
     # Plot the systematic variations
     for i, epti in enumerate(ept_sys):
         ax.plot(ui.eptx, epti[:, 0] / ui.eptw, ls='-',
-                color='deepskyblue', alpha=0.05)
+                color='deepskyblue', alpha=0.5)
     # PHENIX data
     ax.errorbar(ui.eptx, ept_mb[:, 0] / ui.eptw,  yerr=ept_mb[:, 1],
                 lw=2, ls='*', marker='s', ms=8, alpha=0.8, color='crimson',
                 label=r'Run 4 Au+Au $e^{\pm}$ $p_T$')
     ax.legend()
     fig.savefig(figname)
-    # return
+    plt.close(fig)
+    return
 
 
 def plot_result(ylims, p0, gpt, pq, figname='hpt.pdf'):
@@ -72,6 +74,8 @@ def plot_result(ylims, p0, gpt, pq, figname='hpt.pdf'):
                     ls='*', fmt='o', color='crimson', ecolor='crimson',
                     capthick=2)
     fig.savefig(figname)
+    plt.close(fig)
+
 
 
 # def plot_bfrac_samples(samples, quantiles, figname='bfrac_samples.pdf'):
@@ -112,6 +116,8 @@ def plot_post_marg(chain, xlim, figname='posterior.pdf'):
                 a.text(0.05, 0.9, r'$h_{beauty}$',
                        fontsize=5, transform=a.transAxes)
     fig.savefig(figname, bbox_inches='tight')
+    plt.close(fig)
+
 
 
 def plot_lnprob(lnp, figname='lnprob.pdf'):
@@ -124,6 +130,8 @@ def plot_lnprob(lnp, figname='lnprob.pdf'):
     ax.text(0.05, 0.95, r'mean, std dev: {:.3g}, {:.3g}'
             .format(np.mean(lnp), np.std(lnp)), transform=ax.transAxes)
     fig.savefig(figname)
+    plt.close(fig)
+
 
 
 def plot_lnp_steps(sampler, nburnin, figname='lnprob_vs_step.pdf'):
@@ -138,6 +146,8 @@ def plot_lnp_steps(sampler, nburnin, figname='lnprob_vs_step.pdf'):
             '{} chains after {} burn-in steps'.format(nwalkers, nburnin),
             transform=ax.transAxes)
     fig.savefig(figname)
+    plt.close(fig)
+
 
 
 def plotept_fold(ept, cept, bept, cfold, bfold, hfold,
@@ -166,6 +176,7 @@ def plotept_fold(ept, cept, bept, cfold, bfold, hfold,
 
     ax.legend()
     fig.savefig(figname)
+    plt.close(fig)
     return
 
 
@@ -193,6 +204,7 @@ def plotept_refold(ept, cfold, bfold, hfold, figname='ept_refold.pdf'):
                 barsabove=True, label=r'$e^{\pm}$ $p_T$ data')
     ax.legend()
     fig.savefig(figname)
+    plt.close(fig)
     return
 
 
@@ -205,7 +217,8 @@ def plotdca_fold(dca, cfold, bfold, hfold, figname='dca_fold.pdf'):
             i = nc * row + col
             a = axes[row, col]
             a.set_yscale('log')
-            a.set_xlim([ui.dcabins[0], ui.dcabins[-1]])
+            # a.set_xlim([ui.dcabins[0], ui.dcabins[-1]])
+            a.set_xlim([-0.2, 0.2])
             a.set_ylim([0.1, 2 * np.max(dca[i])])
             a.tick_params(axis='x', top='off', labelsize=6)
             a.tick_params(axis='y', labelsize=6)
@@ -232,7 +245,20 @@ def plotdca_fold(dca, cfold, bfold, hfold, figname='dca_fold.pdf'):
                    alpha=1.0,
                    linewidth=0.8,
                    histtype='stepfilled')
+            a.fill_between(
+                           ui.maskranges_mb[0:2, i],
+                           0.1,
+                           2 * np.max(dca[i]),
+                           facecolor='gray',
+                           alpha=0.25)
+            a.fill_between(
+                           ui.maskranges_mb[2:4, i],
+                           0.1,
+                           2 * np.max(dca[i]),
+                           facecolor='gray',
+                           alpha=0.25)
     fig.savefig(figname, bbox_inches='tight')
+    plt.close(fig)
     return
 
 
@@ -256,6 +282,7 @@ def plothpt(gpt, hpt, hptd, figname='hpt-gen.pdf'):
     axes[0].legend(prop={'size': 10})
     fig.tight_layout()
     fig.savefig(figname)
+    plt.close(fig)
     return
 
 
@@ -286,6 +313,43 @@ def plotbfrac(bfrac_ept, bfrac_dca=None, fonll=None, figname='bfrac.pdf'):
                     label=r'DCA unfold')
     ax.legend(loc=2)
     fig.savefig(figname)
+    plt.close(fig)
+    return
+
+def plotbfrac_syssample(bfrac_ept, bfrac_sys, bfrac_dca=None, fonll=None, figname='bfrac_syssample.pdf'):
+    print("plotbfrac_syssample()")
+    dcaeptx = ui.dcaeptbins[:-1] + 0.4 * np.diff(ui.dcaeptbins)
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.set_ylim([0., 1.29])
+    ax.set_xlabel(r'$e^{\pm}$ $p_T$ [GeV/c]')
+    ax.set_ylabel(r'$b \to e / (b \to e + c \to e)$')
+    ax.axhline(1.0, linestyle='--', color='black')
+
+    # Plot the systematic variations
+    for i, bfraci in enumerate(bfrac_sys):
+        ax.plot(ui.eptx, bfraci[:, 0], ls='-',
+                color='deepskyblue', alpha=0.5)
+
+
+    if fonll is not None:
+        ax.plot(fonll[:, 0], fonll[:, 1:],
+                color='k',
+                lw=4,
+                alpha=0.2)
+
+    ax.errorbar(ui.eptx, bfrac_ept[:, 0],
+                yerr=[bfrac_ept[:, 2], bfrac_ept[:, 1]],
+                lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='crimson',
+                label=r'$h_{b}$ refold / $h_{c+b}$ refold')
+
+    if bfrac_dca is not None:
+        ax.errorbar(dcaeptx, bfrac_dca[:, 0],
+                    yerr=[bfrac_dca[:, 2], bfrac_dca[:, 1]],
+                    lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='blue',
+                    label=r'DCA unfold')
+    ax.legend(loc=2)
+    fig.savefig(figname)
+    plt.close(fig)
     return
 
 # def plotbfrac(bfrac_ept, bfrac_dca, figname='bfrac.pdf'):
