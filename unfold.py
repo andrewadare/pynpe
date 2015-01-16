@@ -12,6 +12,7 @@ def unfold(step=0, bfrac=0.007, use_all_data=True,
            dtype='AuAu200MB',
            dca_filename='rootfiles/run11DCA.root',
            outdir='AuAu200MBTest',
+           ept_err = 'Stat',
            rand_ept=False):
 	'''
 	Run the unfold for a given set of input options
@@ -19,6 +20,7 @@ def unfold(step=0, bfrac=0.007, use_all_data=True,
 	dtype := 'AuAu200MB' 'pp200' 'MC'
 	outdir := output directory
 	dca_filename := file to get DCA data & backround from
+	ept_err := 'SysStat' (sys+stat) or 'Stat' (stat only)
 	rand_ept := False, use run11 epT data
 	            True, randomly sample from run 11 ept systematics
 	'''
@@ -30,7 +32,24 @@ def unfold(step=0, bfrac=0.007, use_all_data=True,
 	nwalkers = 500
 	nburnin = 1000
 	nsteps = 1000
-	dcares = {'AuAu200MB': 0.007, 'pp200': 0.01, 'MC': 0.0}
+	# dcares = {'AuAu200MB': 0.007, 'pp200': 0.01, 'MC': 0.0}
+	# const float hadron_dca_mean[NPTSMEAR]  = {-13e-4, -15e-4, -15e-4, -10e-4, -10e-4, -10e-4, -10e-4};
+	# const float hadron_dca_sigma[NPTSMEAR]    = { 87e-4,  77e-4,  69e-4,  65e-4,  62e-4,  60e-4,  58e-4};
+	dcares = {
+	'AuAu200MB': [0.0087, 0.0077, 0.0069, 0.0075, 0.0062, 0.0060, 0.0058], 
+	'pp200': np.full(7, 0.01), 
+	'MC': np.zeros(7)
+	}
+	# dcamean = {
+	# 'AuAu200MB': [-0.0013, -0.0015, -0.0015, -0.0010, -0.0010, -0.0010, -0.0010],
+	# 'pp200': np.full(7, -0.0020),
+	# 'MC': np.zeros(7)
+	# }
+	dcamean = {
+	'AuAu200MB': np.zeros(7),
+	'pp200': np.full(7, -0.0020),
+	'MC': np.zeros(7)
+	}
 	ndim = ui.nhpt
 	c, b = ui.idx['c'], ui.idx['b']
 	x_ini = None
@@ -48,50 +67,79 @@ def unfold(step=0, bfrac=0.007, use_all_data=True,
 	if not os.path.isdir(csvdir):
 	    os.makedirs(csvdir)
 	
+	
+	# Print running conditions
+	print("--------------------------------------------")
 	if use_all_data:
 	    print 'Using combined spectra + DCA datasets. Datatype:', dtype
 	else:
 	    print 'Using electron spectra only. Datatype:', dtype
-	
+	print(" dtype       : {}".format(dtype))
+	print(" Step        : {}".format(step))
+	print(" bfrac       : {}".format(bfrac))
+	print(" dca_filename: {}".format(dca_filename))
+	print(" pdfdir      : {}".format(pdfdir))
+	print(" csvdir      : {}".format(csvdir))
+	print(" ept_err     : {}".format(ept_err))
+	print(" rand_ept    : {}".format(rand_ept))
+	print(" dcares      : {}".format(dcares[dtype]))
+	print(" dcamean     : {}".format(dcamean[dtype]))
+	print(" alpha       : {}".format(alpha))
+	print(" nwalkers    : {}".format(nwalkers))
+	print(" nburnin     : {}".format(nburnin))
+	print(" nsteps      : {}".format(nsteps))
+	print("--------------------------------------------")
+
 	# Create text files for matrix creation (project_and_save() is idempotent).
-	ui.project_and_save(dcares[dtype])
+	ui.project_and_save(dcares[dtype], dcamean[dtype])
 	
 	# Weighted matrices - elements are joint probabilities
 	eptmat = ui.eptmatrix()
 	dcamat = [ui.dcamatrix(i) for i in range(6)]
-	
+
 	# PHENIX data - (21 x 2) - column 0 (1) contains data (error).
-	ept_mb = ui.eptdata('AuAu200MB', rand_ept)
 	ept_pp = ui.eptdata('pp200')
+	ept_mb = ui.eptdata('AuAu200MB', err_type=ept_err)
 	ept_py = ui.eptdata_sim(bfrac, ept_pp[:, 0].sum(), 'pp200')
-	
+
 	# Set ept and dca to selected data type
 	ept, dca = None, []
 	if dtype == 'MC':
 	    ept = ept_py
 	    dca = [ui.dcadata_sim(i, bfrac) for i in range(6)]
 	elif dtype == 'AuAu200MB':
-	    ept = ept_mb
-	    print(" dca_filename={}".format(dca_filename))
-	    dca = [ui.dcadata(i, dtype, dca_filename) for i in range(6)]
+		# If this is the first step, get and save
+		if step == 0 and rand_ept:
+		    ept = ui.eptdata('AuAu200MB', rand_ept)
+		    saveept = "{}ept.csv".format(csvdir)
+		    np.savetxt(saveept, ept, delimiter=",")
+		    print("saved random ept to {}".format(saveept))
+	    # Else read it back from file
+		elif rand_ept and step > 0:
+			readept = "csv/{}/1/ept.csv".format(outdir)
+			ept = np.genfromtxt(readept, delimiter=",") 
+			print("read ept from {}".format(readept))
+		else:
+			ept = ept_mb
+		#       Get the DCA data	
+		print(" dca_filename={}".format(dca_filename))
+		dca     = [ui.dcadata(i, dtype, dca_filename) for i in range(6)]
 	elif dtype == 'pp200':
 	    ept = ept_pp
 	    dca = [ui.dcadata(i, dtype) for i in range(6)]
 	
+	# Check the mean and DCA of the histograms and compare to the
+	# expected dcamean and dcares values
+	for i, d in enumerate(dca):
+		m = np.average(ui.dcax, weights=d[:,0])
+		s = np.average((m - ui.dcax)**2, weights=d[:,0])
+		s = np.sqrt(s)
+		print(" {} dca mean: {} ({})".format(i, m, dcamean[dtype][i]))
+		print(" {} dca res : {} ({})".format(i, s, dcares[dtype][i]))
+
 	# Chop out rows matching excluded DCA bins
 	subdca, subdcamat = ui.dca_subset(dca, dcamat, dtype)
 	
-	for d in dca:
-		print(" sum dca:{}".format(sum(d[:,0])))
-	for d in subdca:
-		print(" sum subdca:{}".format(sum(d[:,0])))
-	for m in subdcamat:
-		print(" sum subdcamat:{}".format(m.sum()))
-	for d in dca:
-		print(" shape dca   : ({}, {})".format(d.shape[0], d.shape[1]))
-	for d in subdca:
-		print(" shape subdca: ({}, {})".format(d.shape[0], d.shape[1]))
-
 	# Generated pythia inclusive hadron pt.
 	# Used for MCMC initial point, for regularization, and for comparison to
 	# result.
@@ -105,7 +153,7 @@ def unfold(step=0, bfrac=0.007, use_all_data=True,
 	if step == 0:
 	    x_ini = gpt
 	else:
-	    csvi = 'csv/{}/{}/pq.csv'.format(dtype, step)
+	    csvi = 'csv/{}/{}/pq.csv'.format(outdir, step)
 	    x_ini = np.loadtxt(csvi, delimiter=',')[:, 0]
 	
 	# Create a combined electron pt + electron DCA data and matrix list
