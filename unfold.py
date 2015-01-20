@@ -33,30 +33,30 @@ def unfold(step=0, bfrac=0.007, use_all_data=True,
 	nburnin = 1000
 	nsteps = 1000
 	# dcares = {'AuAu200MB': 0.007, 'pp200': 0.01, 'MC': 0.0}
-	# const float hadron_dca_mean[NPTSMEAR]  = {-13e-4, -15e-4, -15e-4, -10e-4, -10e-4, -10e-4, -10e-4};
-	# const float hadron_dca_sigma[NPTSMEAR]    = { 87e-4,  77e-4,  69e-4,  65e-4,  62e-4,  60e-4,  58e-4};
 	dcares = {
-	'AuAu200MB': [0.0087, 0.0077, 0.0069, 0.0075, 0.0062, 0.0060, 0.0058], 
-	'pp200': np.full(7, 0.01), 
-	'MC': np.zeros(7)
+	'AuAu200MB': [0.0077, 0.0069, 0.0065, 0.0062, 0.0060, 0.0058], 
+	'pp200': np.full(6, 0.01), 
+	'MC': np.zeros(6)
+	}
+	dcamean = {
+	'AuAu200MB': [-0.0015, -0.0015, -0.0010, -0.0010, -0.0010, -0.0010],
+	'pp200': np.full(6, -0.0020),
+	'MC': np.zeros(6)
 	}
 	# dcamean = {
-	# 'AuAu200MB': [-0.0013, -0.0015, -0.0015, -0.0010, -0.0010, -0.0010, -0.0010],
-	# 'pp200': np.full(7, -0.0020),
-	# 'MC': np.zeros(7)
+	# 'AuAu200MB': np.zeros(6),
+	# 'pp200': np.full(6, -0.0020),
+	# 'MC': np.zeros(6)
 	# }
-	dcamean = {
-	'AuAu200MB': np.zeros(7),
-	'pp200': np.full(7, -0.0020),
-	'MC': np.zeros(7)
-	}
 	ndim = ui.nhpt
 	c, b = ui.idx['c'], ui.idx['b']
 	x_ini = None
 
 	# Output locations
-	pdfdir = 'pdfs/{}/{}/'.format(outdir, step + 1)
-	csvdir = 'csv/{}/{}/'.format(outdir, step + 1)
+	# pdfdir = 'pdfs/{}/{}/'.format(outdir, step + 1)
+	# csvdir = 'csv/{}/{}/'.format(outdir, step + 1)
+	pdfdir = '{}/pdfs/{}/'.format(outdir, step + 1)
+	csvdir = '{}/csv/{}/'.format(outdir, step + 1)
 
 	if use_all_data == False:
 	    pdfdir = 'pdfs/spectra_only/{}/{}/'.format(outdir, step + 1)
@@ -116,7 +116,8 @@ def unfold(step=0, bfrac=0.007, use_all_data=True,
 		    print("saved random ept to {}".format(saveept))
 	    # Else read it back from file
 		elif rand_ept and step > 0:
-			readept = "csv/{}/1/ept.csv".format(outdir)
+			# readept = "csv/{}/1/ept.csv".format(outdir)
+			readept = "{}/csv/1/ept.csv".format(outdir)
 			ept = np.genfromtxt(readept, delimiter=",") 
 			print("read ept from {}".format(readept))
 		else:
@@ -153,7 +154,8 @@ def unfold(step=0, bfrac=0.007, use_all_data=True,
 	if step == 0:
 	    x_ini = gpt
 	else:
-	    csvi = 'csv/{}/{}/pq.csv'.format(outdir, step)
+	    # csvi = 'csv/{}/{}/pq.csv'.format(outdir, step)
+	    csvi = '{}/csv/{}/pq.csv'.format(outdir, step)
 	    x_ini = np.loadtxt(csvi, delimiter=',')[:, 0]
 	
 	# Create a combined electron pt + electron DCA data and matrix list
@@ -207,7 +209,7 @@ def unfold(step=0, bfrac=0.007, use_all_data=True,
 	
 	    # Write out initial predictions for watch_predictions.py animation
 	    for i in range(6):
-	        np.savetxt('csv/preds{}.csv'.format(i), preds[i],
+	        np.savetxt('{}/csv/preds{}.csv'.format(outdir, i), preds[i],
 	                   fmt='%.2f', delimiter=',')
 	    # sys.exit()
 	    fcn = lnp.logp_ept_dca
