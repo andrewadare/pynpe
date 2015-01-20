@@ -8,7 +8,8 @@ import unfold_input as ui
 import plotting_functions as pf
 from refold import ept_refold, dca_refold
 
-def unfold(step=0, bfrac=0.007, use_all_data=True,
+def unfold(step=0, bfrac=0.007, alpha=0.2,
+           use_all_data=True,
            dtype='AuAu200MB',
            dca_filename='rootfiles/run11DCA.root',
            outdir='AuAu200MBTest',
@@ -28,7 +29,7 @@ def unfold(step=0, bfrac=0.007, use_all_data=True,
 	# Setup/configuration
 	#--------------------------------------------------------------------------
 
-	alpha = 0.2  # Regularization parameter
+	# alpha = 0.2  # Regularization parameter
 	nwalkers = 500
 	nburnin = 1000
 	nsteps = 1000
