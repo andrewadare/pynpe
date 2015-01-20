@@ -156,7 +156,9 @@ def project_and_save(dcares=np.full(len(dcaeptbins), 0.007),
             hadca.SetXTitle('electron DCA [cm]')
             hadca.SetYTitle('{} hadron pt'.format(cb[i]))
 
-            a = h2a_rebin2d(hadca, dcabins, hbins, xbinshift=2)
+            # I think this is the ~20 micron shift. remove
+            # a = h2a_rebin2d(hadca, dcabins, hbins, xbinshift=2)
+            a = h2a_rebin2d(hadca, dcabins, hbins, xbinshift=0)
 
             if dcares[j] > 0:
                 # Apply convolution to columns of a, each column being the DCA
@@ -319,7 +321,7 @@ def eptdata(data_type, rand_syserr=False, err_type='SysStat'):
         # Multiply by bin width
         pts *= np.diff(d.eptbins[7:])
         err *= np.diff(d.eptbins[7:])
-        return np.vstack((pts, stat_err)).T
+        return np.vstack((pts, err)).T
 
     elif data_type == 'pp200':
         pts = d.xsec_pp[7:]
