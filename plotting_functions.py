@@ -76,6 +76,33 @@ def plot_result(ylims, p0, gpt, pq, figname='hpt.pdf'):
     fig.savefig(figname)
     plt.close(fig)
 
+def plot_result_sysample(pq, pq_sys, gpt=None, figname='hpt-syssample.pdf'):
+    '''
+    Draw initial guess, chosen result, and sys samples.
+    '''
+    print("plot_result_sysample()")
+    fig, axes = plt.subplots(1, 2)
+    for i, ax in enumerate(axes):
+        ptx = ui.cptx if i == 0 else ui.bptx
+        cb = 'c' if i == 0 else 'b'
+        r = ui.idx[cb]
+        w = ui.hptw[r]
+        ax.set_yscale('log')
+        ax.set_xlabel(r'{} hadron $p_T$ [GeV/c]'.format(cb))
+        # pythia
+        if gpt is not None:
+	        ax.plot(ptx, gpt[r] / w, lw=2, ls='*', marker='o', color='white')
+	    # sys samples
+        for i, pqi in enumerate(pq_sys):
+	        ax.plot(ptx, pqi[r, 0] / w, ls='-',
+    	            color='deepskyblue', alpha=0.5)
+        # result
+        ax.errorbar(ptx, pq[r, 0] / w, yerr=[pq[r, 2] / w, pq[r, 1] / w],
+                    ls='*', fmt='o', color='crimson', ecolor='crimson',
+                    capthick=2)
+    fig.savefig(figname)
+    plt.close(fig)
+
 
 
 # def plot_bfrac_samples(samples, quantiles, figname='bfrac_samples.pdf'):
@@ -245,14 +272,12 @@ def plotdca_fold(dca, cfold, bfold, hfold, figname='dca_fold.pdf'):
                    alpha=1.0,
                    linewidth=0.8,
                    histtype='stepfilled')
-            a.fill_between(
-                           ui.maskranges_mb[0:2, i],
+            a.fill_between(ui.maskranges_mb[0:2, i],
                            0.1,
                            2 * np.max(dca[i]),
                            facecolor='gray',
                            alpha=0.25)
-            a.fill_between(
-                           ui.maskranges_mb[2:4, i],
+            a.fill_between(ui.maskranges_mb[2:4, i],
                            0.1,
                            2 * np.max(dca[i]),
                            facecolor='gray',
@@ -285,7 +310,6 @@ def plothpt(gpt, hpt, hptd, figname='hpt-gen.pdf'):
     plt.close(fig)
     return
 
-
 def plotbfrac(bfrac_ept, bfrac_dca=None, fonll=None, figname='bfrac.pdf'):
     print("plotbfrac()")
     dcaeptx = ui.dcaeptbins[:-1] + 0.4 * np.diff(ui.dcaeptbins)
@@ -316,7 +340,7 @@ def plotbfrac(bfrac_ept, bfrac_dca=None, fonll=None, figname='bfrac.pdf'):
     plt.close(fig)
     return
 
-def plotbfrac_syssample(bfrac_ept, bfrac_sys, bfrac_dca=None, fonll=None, figname='bfrac_syssample.pdf'):
+def plotbfrac_syssample(bfrac_ept, bfrac_sys, bfrac_dca=None, fonll=None, figname='bfrac-syssample.pdf'):
     print("plotbfrac_syssample()")
     dcaeptx = ui.dcaeptbins[:-1] + 0.4 * np.diff(ui.dcaeptbins)
     fig, ax = plt.subplots(figsize=(8, 6))
