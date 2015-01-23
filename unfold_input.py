@@ -12,7 +12,8 @@ cptbins = np.array([0., 1, 2, 3, 4, 5, 7, 9, 12, 15, 20])
 bptbins = cptbins
 hptbins = np.hstack((cptbins[:-1], cptbins[-1] + bptbins))
 # dcabins = np.linspace(-0.2, 0.2, 101) # for QM12
-dcabins = np.linspace(-0.7, 0.7, 701) # for Run 11
+# dcabins = np.linspace(-0.7, 0.7, 701) # for Run 11
+dcabins = np.linspace(-0.7, 0.7, 351) # for Run 11
 
 # Bin width arrays
 eptw = np.diff(eptbins)
