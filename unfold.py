@@ -8,7 +8,7 @@ import unfold_input as ui
 import plotting_functions as pf
 from refold import ept_refold, dca_refold
 
-def unfold(step=0, bfrac=0.007, alpha=0.2,
+def unfold(step=0, bfrac=0.007, alpha=0.2, dcaweight=0.5,
            use_all_data=True,
            dtype='AuAu200MB',
            dca_filename='rootfiles/run11DCA.root',
@@ -204,7 +204,7 @@ def unfold(step=0, bfrac=0.007, alpha=0.2,
 	    print 'e DCA sum  ln(L) initial estimate:', ld, np.std(ll_dca)
 	
 	    # eptw, dcaw = ld/(le+ld), le/(le+ld)
-	    eptw, dcaw = 0.5, 0.5
+	    eptw, dcaw = (1 - dcaweight), dcaweight
 	    print 'Spectrum weight factor:', eptw
 	    print 'DCA weight factor:', dcaw
 	
@@ -243,7 +243,7 @@ def unfold(step=0, bfrac=0.007, alpha=0.2,
 	# Plot results
 	#--------------------------------------------------------------------------
 	ceptr, beptr, heptr, bfrac_ept = ept_refold(pq, eptmat)
-	cdcar, bdcar, hdcar, bfrac_dca = dca_refold(pq, dcamat, dca, add_bkg=True)
+	cdcar, bdcar, hdcar, bfrac_dca, rf = dca_refold(pq, dcamat, dca, add_bkg=True)
 	
 	pf.plotept_refold(ept, ceptr, beptr, heptr, pdfdir + 'ept_refold.pdf')
 	pf.plotbfrac(bfrac_ept, None, ui.fonll, pdfdir + 'bfrac-ept.pdf')
@@ -255,6 +255,7 @@ def unfold(step=0, bfrac=0.007, alpha=0.2,
 	pf.plot_ept(0.1 * ept_mb, ept_pp, ept_py, pdfdir + 'ept-comparison.pdf')
 	pf.plotdca_fold(dca, cdcar, bdcar, hdcar, pdfdir + 'dca-fold.pdf')
 	pf.plotbfrac(bfrac_ept, bfrac_dca, ui.fonll, pdfdir + 'bfrac.pdf')
+	pf.plotdca_fold_rat(dca, cdcar, bdcar, hdcar, rf, pdfdir)
 
 
 if __name__ == '__main__':
