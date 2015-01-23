@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
+from matplotlib import gridspec
 import unfold_input as ui
 
 
@@ -91,11 +92,11 @@ def plot_result_sysample(pq, pq_sys, gpt=None, figname='hpt-syssample.pdf'):
         ax.set_xlabel(r'{} hadron $p_T$ [GeV/c]'.format(cb))
         # pythia
         if gpt is not None:
-	        ax.plot(ptx, gpt[r] / w, lw=2, ls='*', marker='o', color='white')
-	    # sys samples
+            ax.plot(ptx, gpt[r] / w, lw=2, ls='*', marker='o', color='white')
+        # sys samples
         for i, pqi in enumerate(pq_sys):
-	        ax.plot(ptx, pqi[r, 0] / w, ls='-',
-    	            color='deepskyblue', alpha=0.5)
+            ax.plot(ptx, pqi[r, 0] / w, ls='-',
+                    color='deepskyblue', alpha=0.5)
         # result
         ax.errorbar(ptx, pq[r, 0] / w, yerr=[pq[r, 2] / w, pq[r, 1] / w],
                     ls='*', fmt='o', color='crimson', ecolor='crimson',
@@ -286,6 +287,69 @@ def plotdca_fold(dca, cfold, bfold, hfold, figname='dca_fold.pdf'):
     plt.close(fig)
     return
 
+def plotdca_fold_rat(dca, cfold, bfold, hfold, rat, plotdir='./'):
+    print("plotdca_fold_rat()")
+    for i, d in enumerate(dca):
+        # fig, ax = plt.subplots(2, 1, sharex=True, figsize=(6, 7))
+        fig = plt.figure(figsize=(6, 7))
+        gs = gridspec.GridSpec(2, 1, height_ratios=[3, 1])
+        ax = [plt.subplot(gs[0]), plt.subplot(gs[1])]
+        ax[0].set_yscale('log')
+        # ax[0].set_xlim([ui.dcabins[0], ui.dcabins[-1]])
+        ax[0].set_xlim([-0.2, 0.2])
+        ax[0].set_ylim([0.11, 2 * np.max(dca[i])])
+        # ax[0].tick_params(axis='x', top='off', labelsize=6)
+        ax[0].tick_params(axis='x', top='off', labelsize=0)
+        ax[0].tick_params(axis='y', labelsize=6)
+        s = r'{0:.1f}-{1:.1f} GeV/c'.format(
+            ui.dcaeptbins[i], ui.dcaeptbins[i + 1])
+        ax[0].text(0.55, 0.9, s, fontsize=8, transform=ax[0].transAxes)
+        ax[0].step(ui.dcax, hfold[i][:, 0], lw=2, alpha=0.8, color='crimson')
+        ax[0].step(ui.dcax,
+               cfold[i][:, 0],
+               lw=2,
+               alpha=0.8,
+               color='darkorange')
+        ax[0].step(ui.dcax,
+               bfold[i][:, 0],
+               lw=2,
+               alpha=0.8,
+               color='dodgerblue')
+        ax[0].hist(ui.dcax,
+               ui.dcabins,
+               weights=dca[i][:, 0],
+               log=True,
+               color='white',
+               edgecolor='black',
+               alpha=1.0,
+               linewidth=0.8,
+               histtype='stepfilled')
+        ax[0].fill_between(ui.maskranges_mb[0:2, i],
+                       0.1,
+                       2 * np.max(dca[i]),
+                       facecolor='gray',
+                       alpha=0.25)
+        ax[0].fill_between(ui.maskranges_mb[2:4, i],
+                       0.1,
+                       2 * np.max(dca[i]),
+                       facecolor='gray',
+                       alpha=0.25)
+
+        ax[1].tick_params(axis='x', top='off', labelsize=6)
+        ax[1].tick_params(axis='y', labelsize=6)
+        ax[1].step(ui.dcax, rat[i], lw=2)
+        ax[1].axhline(y=1., linestyle='--', color='black')
+        ax[1].set_ylabel("re-fold / data")
+        ax[1].set_xlabel("DCA2D [microns]")
+        ax[1].set_xlim([-0.2, 0.2])
+
+        fig.subplots_adjust(hspace=0.001)
+        plt.savefig("{}dca-fold-{}.pdf".format(plotdir, i), bbox_inches='tight')
+        plt.close(fig)
+    return
+
+
+
 
 def plothpt(gpt, hpt, hptd, figname='hpt-gen.pdf'):
     print("plothpt()")
@@ -325,10 +389,20 @@ def plotbfrac(bfrac_ept, bfrac_dca=None, fonll=None, figname='bfrac.pdf'):
                 lw=4,
                 alpha=0.2)
 
-    ax.errorbar(ui.eptx, bfrac_ept[:, 0],
-                yerr=[bfrac_ept[:, 2], bfrac_ept[:, 1]],
-                lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='crimson',
-                label=r'$h_{b}$ refold / $h_{c+b}$ refold')
+    # ax.errorbar(ui.eptx, bfrac_ept[:, 0],
+    #             yerr=[bfrac_ept[:, 2], bfrac_ept[:, 1]],
+    #             lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='crimson',
+    #             label=r'$h_{b}$ refold / $h_{c+b}$ refold')
+
+    ax.plot(ui.eptx, bfrac_ept[:, 0],
+            lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='crimson',
+            label=r'$h_{b}$ refold / $h_{c+b}$ refold')
+
+    ax.fill_between(ui.eptx,
+                   bfrac_ept[:, 1] + bfrac_ept[:, 0],
+                   bfrac_ept[:, 0] - bfrac_ept[:, 2],
+                   facecolor='crimson',
+                   alpha=0.25)
 
     if bfrac_dca is not None:
         ax.errorbar(dcaeptx, bfrac_dca[:, 0],
@@ -361,10 +435,21 @@ def plotbfrac_syssample(bfrac_ept, bfrac_sys, bfrac_dca=None, fonll=None, fignam
                 lw=4,
                 alpha=0.2)
 
-    ax.errorbar(ui.eptx, bfrac_ept[:, 0],
-                yerr=[bfrac_ept[:, 2], bfrac_ept[:, 1]],
-                lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='crimson',
-                label=r'$h_{b}$ refold / $h_{c+b}$ refold')
+    # ax.errorbar(ui.eptx, bfrac_ept[:, 0],
+    #             yerr=[bfrac_ept[:, 2], bfrac_ept[:, 1]],
+    #             lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='crimson',
+    #             label=r'$h_{b}$ refold / $h_{c+b}$ refold')
+
+    ax.plot(ui.eptx, bfrac_ept[:, 0],
+            lw=2, ls='*', marker='s', ms=10, alpha=0.8, color='crimson',
+            label=r'$h_{b}$ refold / $h_{c+b}$ refold')
+
+    ax.fill_between(ui.eptx,
+                   bfrac_ept[:, 1] + bfrac_ept[:, 0],
+                   bfrac_ept[:, 0] - bfrac_ept[:, 2],
+                   facecolor='crimson',
+                   alpha=0.25)
+
 
     if bfrac_dca is not None:
         ax.errorbar(dcaeptx, bfrac_dca[:, 0],
