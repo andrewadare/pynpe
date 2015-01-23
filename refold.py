@@ -4,7 +4,7 @@ import unfold_input as ui
 
 def dca_refold(gpt, dcamat, dca, add_bkg=False):
     c, b = ui.idx['c'], ui.idx['b']
-    cfold, bfold, hfold = [], [], []
+    cfold, bfold, hfold, rfold = [], [], [], []
     bfrac = np.zeros((len(dca), 3))
     for i, m in enumerate(dcamat):
         cf = np.dot(m[:, c], gpt[c])
@@ -18,9 +18,12 @@ def dca_refold(gpt, dcamat, dca, add_bkg=False):
         if add_bkg == True:
             hf[:, 0] += dca[i][:, 1]
 
+        rf = hf[:, 0] / dca[i][:, 0] 
+
         cfold.append(cf)
         bfold.append(bf)
         hfold.append(hf)
+        rfold.append(rf)
         bfrac[i, :] = np.sum(bf[:, 0]) / (np.sum(bf[:, 0]) + np.sum(cf[:, 0]))
 
         # Error propagation
@@ -33,7 +36,7 @@ def dca_refold(gpt, dcamat, dca, add_bkg=False):
 
 
 
-    return cfold, bfold, hfold, bfrac
+    return cfold, bfold, hfold, bfrac, rfold
 
 
 def ept_refold(gpt, eptmat):
