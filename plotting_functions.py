@@ -77,6 +77,58 @@ def plot_result(ylims, p0, gpt, pq, figname='hpt.pdf'):
     fig.savefig(figname)
     plt.close(fig)
 
+
+def plot_result_rat(gpt, pq, figname='hpt-rat.pdf'):
+    '''
+    Draw prior, walkers, initial guess, and result.
+    '''
+    print("Drawing results...")
+    nr, nc = 2, 2
+    fig = plt.figure(figsize=(6, 7))
+    gs = gridspec.GridSpec(nr, nc, height_ratios=[2, 1])
+
+    ylim_cb = {'c':[2e-8, 1e1], 'b':[1.5e-8, 1e-2]}
+    for col in range(nc):
+
+        ax = [plt.subplot(gs[col]), plt.subplot(gs[nc + col])]
+        ptx = ui.cptx if col == 0 else ui.bptx
+        cb = 'c' if col == 0 else 'b'
+        r = ui.idx[cb]
+        w = ui.hptw[r]
+
+        # Plot the hadron yields
+        ax[0].set_yscale('log')
+        ax[0].set_ylim(ylim_cb[cb])
+        if col == 0:
+            ax[0].set_ylabel(r'Hadron Yied')
+        ax[0].plot(ptx, gpt[r] / w, lw=2, ls='*', marker='o', color='white',
+                   label=r'pythia')
+        ax[0].errorbar(ptx, pq[r, 0] / w, yerr=[pq[r, 2] / w, pq[r, 1] / w],
+                    ls='*', fmt='o', color='crimson', ecolor='crimson',
+                    capthick=2, label=r'Unfold')
+        ax[0].tick_params(axis='x', labelsize=0)
+        ax[0].tick_params(axis='y', labelsize=8)
+
+        if col == 1:
+            ax[0].legend(fontsize=10)
+
+        # Plot the ratio of hadron yields
+        ax[1].errorbar(ptx, pq[r, 0] / gpt[r], yerr=[pq[r, 2]/gpt[r], pq[r, 1]/gpt[r]],
+                       ls='*', fmt='o', color='crimson', ecolor='crimson',
+                       capthick=2)
+        ax[1].set_xlabel(r'{} hadron $p_T$ [GeV/c]'.format(cb))
+        if col == 0:
+            ax[1].set_ylabel(r'Unfold/pythia')
+        ax[1].axhline(y=1., linestyle='--', color='black')
+        ax[1].tick_params(axis='x', labelsize=8)
+        ax[1].tick_params(axis='y', labelsize=8)
+        ax[1].set_yscale('log')
+
+    fig.subplots_adjust(hspace=0.1)
+    fig.savefig(figname)
+    plt.close(fig)
+
+
 def plot_result_sysample(pq, pq_sys, gpt=None, figname='hpt-syssample.pdf'):
     '''
     Draw initial guess, chosen result, and sys samples.
@@ -379,6 +431,7 @@ def plotbfrac(bfrac_ept, bfrac_dca=None, fonll=None, figname='bfrac.pdf'):
     dcaeptx = ui.dcaeptbins[:-1] + 0.4 * np.diff(ui.dcaeptbins)
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.set_ylim([0., 1.29])
+    ax.set_xlim([1., 9.])
     ax.set_xlabel(r'$e^{\pm}$ $p_T$ [GeV/c]')
     ax.set_ylabel(r'$b \to e / (b \to e + c \to e)$')
     ax.axhline(1.0, linestyle='--', color='black')
@@ -419,6 +472,7 @@ def plotbfrac_syssample(bfrac_ept, bfrac_sys, bfrac_dca=None, fonll=None, fignam
     dcaeptx = ui.dcaeptbins[:-1] + 0.4 * np.diff(ui.dcaeptbins)
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.set_ylim([0., 1.29])
+    ax.set_xlim([1., 9.])
     ax.set_xlabel(r'$e^{\pm}$ $p_T$ [GeV/c]')
     ax.set_ylabel(r'$b \to e / (b \to e + c \to e)$')
     ax.axhline(1.0, linestyle='--', color='black')
