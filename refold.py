@@ -1,10 +1,11 @@
 import numpy as np
 import unfold_input as ui
+import scipy.stats as stats
 
 
 def dca_refold(gpt, dcamat, dca, add_bkg=False):
     c, b = ui.idx['c'], ui.idx['b']
-    cfold, bfold, hfold, rfold = [], [], [], []
+    cfold, bfold, hfold, rfold, pfold = [], [], [], [], []
     bfrac = np.zeros((len(dca), 3))
     for i, m in enumerate(dcamat):
         cf = np.dot(m[:, c], gpt[c])
@@ -19,11 +20,13 @@ def dca_refold(gpt, dcamat, dca, add_bkg=False):
             hf[:, 0] += dca[i][:, 1]
 
         rf = hf[:, 0] / dca[i][:, 0] 
+        pf = stats.poisson.pmf(dca[i][:, 0], hf[:, 0])
 
         cfold.append(cf)
         bfold.append(bf)
         hfold.append(hf)
         rfold.append(rf)
+        pfold.append(pf)
         bfrac[i, :] = np.sum(bf[:, 0]) / (np.sum(bf[:, 0]) + np.sum(cf[:, 0]))
 
         # Error propagation
@@ -36,7 +39,7 @@ def dca_refold(gpt, dcamat, dca, add_bkg=False):
 
 
 
-    return cfold, bfold, hfold, bfrac, rfold
+    return cfold, bfold, hfold, bfrac, rfold, pfold
 
 
 def ept_refold(gpt, eptmat):
