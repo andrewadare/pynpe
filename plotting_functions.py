@@ -339,61 +339,96 @@ def plotdca_fold(dca, cfold, bfold, hfold, figname='dca_fold.pdf'):
     plt.close(fig)
     return
 
-def plotdca_fold_rat(dca, cfold, bfold, hfold, rat, plotdir='./'):
+def plotdca_fold_rat(dca, cfold, bfold, hfold, rat, lnp=None, mins=None, plotdir='./'):
     print("plotdca_fold_rat()")
     for i, d in enumerate(dca):
         # fig, ax = plt.subplots(2, 1, sharex=True, figsize=(6, 7))
         fig = plt.figure(figsize=(6, 7))
         gs = gridspec.GridSpec(2, 1, height_ratios=[3, 1])
         ax = [plt.subplot(gs[0]), plt.subplot(gs[1])]
+
+        maxy = 2 * np.max(dca[i])
+
+        bint = np.sum(bfold[i][:, 0])
+        cint = np.sum(cfold[i][:, 0])
+        bfrac = bint / (bint + cint)
+
+        ax[0].plot(ui.dcax, 
+                   hfold[i][:, 0], 
+                   lw=2, 
+                   alpha=0.8, 
+                   color='crimson',
+                   drawstyle='steps-mid')
+        ax[0].plot(ui.dcax,
+               cfold[i][:, 0],
+               lw=2,
+               alpha=0.8,
+               color='darkorange',
+               drawstyle='steps-mid')
+        ax[0].plot(ui.dcax,
+               bfold[i][:, 0],
+               lw=2,
+               alpha=0.8,
+               color='dodgerblue',
+               drawstyle='steps-mid')
+        ax[0].hist(ui.dcax,
+               ui.dcabins,
+               weights=dca[i][:, 0],
+               log=True,
+               edgecolor='black',
+               alpha=1.0,
+               linewidth=0.8,
+               histtype='step')
+        ax[0].fill_between(ui.maskranges_mb[0:2, i],
+                       0.1,
+                       maxy,
+                       facecolor='gray',
+                       alpha=0.25)
+        ax[0].fill_between(ui.maskranges_mb[2:4, i],
+                       0.1,
+                       maxy,
+                       facecolor='gray',
+                       alpha=0.25)
         ax[0].set_yscale('log')
         # ax[0].set_xlim([ui.dcabins[0], ui.dcabins[-1]])
         ax[0].set_xlim([-0.2, 0.2])
-        ax[0].set_ylim([0.11, 2 * np.max(dca[i])])
+        ax[0].set_ylim([0.11, maxy])
         # ax[0].tick_params(axis='x', top='off', labelsize=6)
         ax[0].tick_params(axis='x', top='off', labelsize=0)
         ax[0].tick_params(axis='y', labelsize=6)
         s = r'{0:.1f}-{1:.1f} GeV/c'.format(
             ui.dcaeptbins[i], ui.dcaeptbins[i + 1])
-        ax[0].text(0.55, 0.9, s, fontsize=8, transform=ax[0].transAxes)
-        ax[0].step(ui.dcax, hfold[i][:, 0], lw=2, alpha=0.8, color='crimson')
-        ax[0].step(ui.dcax,
-               cfold[i][:, 0],
-               lw=2,
-               alpha=0.8,
-               color='darkorange')
-        ax[0].step(ui.dcax,
-               bfold[i][:, 0],
-               lw=2,
-               alpha=0.8,
-               color='dodgerblue')
-        ax[0].hist(ui.dcax,
-               ui.dcabins,
-               weights=dca[i][:, 0],
-               log=True,
-               color='white',
-               edgecolor='black',
-               alpha=1.0,
-               linewidth=0.8,
-               histtype='stepfilled')
-        ax[0].fill_between(ui.maskranges_mb[0:2, i],
-                       0.1,
-                       2 * np.max(dca[i]),
-                       facecolor='gray',
-                       alpha=0.25)
-        ax[0].fill_between(ui.maskranges_mb[2:4, i],
-                       0.1,
-                       2 * np.max(dca[i]),
-                       facecolor='gray',
-                       alpha=0.25)
+        ax[0].text(0.65, 0.9, s, fontsize=12, transform=ax[0].transAxes)
+        if lnp is not None:
+            ll = r'LL={:.2f}'.format(lnp[i])
+            ax[0].text(0.65, 0.85, ll, fontsize=12, transform=ax[0].transAxes)
+        bf = r'b/(b+c)={0:.3f}'.format(bfrac)
+        ax[0].text(0.65, 0.8, bf, fontsize=12, transform=ax[0].transAxes)
 
-        ax[1].tick_params(axis='x', top='off', labelsize=6)
-        ax[1].tick_params(axis='y', labelsize=6)
-        ax[1].step(ui.dcax, rat[i], lw=2)
+        # second subdca
+        if mins is not None:
+            miny = mins[i]
+        else:
+            miny = np.min(rat[i])
+        ax[1].plot(ui.dcax, rat[i], lw=2, drawstyle='steps-mid')
+        ax[1].fill_between(ui.maskranges_mb[0:2, i],
+                       miny,
+                       10,
+                       facecolor='gray',
+                       alpha=0.25)
+        ax[1].fill_between(ui.maskranges_mb[2:4, i],
+                       miny,
+                       10,
+                       facecolor='gray',
+                       alpha=0.25)
+        ax[1].tick_params(axis='x', top='off', labelsize=8)
+        ax[1].tick_params(axis='y', labelsize=8)
         ax[1].axhline(y=1., linestyle='--', color='black')
-        ax[1].set_ylabel("re-fold / data")
+        ax[1].set_ylabel("Fit Probability")
         ax[1].set_xlabel("DCA2D [microns]")
         ax[1].set_xlim([-0.2, 0.2])
+        ax[1].set_ylim(miny, 10)
+        ax[1].set_yscale('log')
 
         fig.subplots_adjust(hspace=0.001)
         plt.savefig("{}dca-fold-{}.pdf".format(plotdir, i), bbox_inches='tight')
