@@ -239,11 +239,33 @@ def unfold(step=0, bfrac=0.007, alpha=0.2, dcaweight=0.5,
 	pq = np.array(pq)
 	np.savetxt("{}pq.csv".format(csvdir), pq, delimiter=",")
 	
+
+	# Get the final results (re-fold)
+	ceptr, beptr, heptr, bfrac_ept = ept_refold(pq, eptmat)
+	cdcar, bdcar, hdcar, bfrac_dca, rf, pdca = dca_refold(pq, dcamat, dca, add_bkg=True)
+
+
+
+	# Calculate the log likelihood for each DCA fit
+	subhdcar, subdcamat = ui.dca_subset(hdcar, dcamat, 'AuAu200MB')
+	lldca = []
+	for i, d in enumerate(subdca):
+		ll = lnp.lnpoisson(d[:,0], subhdcar[i][:,0])
+		lldca.append(ll)
+
+
+	# Find the minimum probability in the fit range
+	minprob = []
+	subprob = ui.val_subset(pdca, 'AuAu200MB')
+	for i, psub in enumerate(subprob):
+		print(np.min(psub))
+		minprob.append(np.min(psub))	
+	# temporarily set up for getting a consistent scale
+	# minprob = [1e-5, 1e-3, 1e-6, 1e-8, 1e-6, 1e-3]
+
 	#--------------------------------------------------------------------------
 	# Plot results
 	#--------------------------------------------------------------------------
-	ceptr, beptr, heptr, bfrac_ept = ept_refold(pq, eptmat)
-	cdcar, bdcar, hdcar, bfrac_dca, rf = dca_refold(pq, dcamat, dca, add_bkg=True)
 	
 	pf.plotept_refold(ept, ceptr, beptr, heptr, pdfdir + 'ept_refold.pdf')
 	pf.plotbfrac(bfrac_ept, None, ui.fonll, pdfdir + 'bfrac-ept.pdf')
@@ -255,7 +277,7 @@ def unfold(step=0, bfrac=0.007, alpha=0.2, dcaweight=0.5,
 	pf.plot_ept(0.1 * ept_mb, ept_pp, ept_py, pdfdir + 'ept-comparison.pdf')
 	pf.plotdca_fold(dca, cdcar, bdcar, hdcar, pdfdir + 'dca-fold.pdf')
 	pf.plotbfrac(bfrac_ept, bfrac_dca, ui.fonll, pdfdir + 'bfrac.pdf')
-	pf.plotdca_fold_rat(dca, cdcar, bdcar, hdcar, rf, pdfdir)
+	pf.plotdca_fold_rat(dca, cdcar, bdcar, hdcar, pdca, lldca, minprob, pdfdir)
 
 
 if __name__ == '__main__':
