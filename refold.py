@@ -3,15 +3,18 @@ import unfold_input as ui
 import scipy.stats as stats
 
 
-def dca_refold(gpt, dcamat, dca, add_bkg=False):
+def dca_refold(gpt, dcamat, dca, dtype='AuAu200MB', add_bkg=False):
     c, b = ui.idx['c'], ui.idx['b']
     cfold, bfold, hfold, rfold, pfold = [], [], [], [], []
+    subdca, subdcamat = ui.dca_subset(dca, dcamat, dtype)
     bfrac = np.zeros((len(dca), 3))
     for i, m in enumerate(dcamat):
         cf = np.dot(m[:, c], gpt[c])
         bf = np.dot(m[:, b], gpt[b])
         hf = cf + bf
-        scf = (dca[i][:, 0].sum() - dca[i][:, 1].sum()) / hf[:, 0].sum()
+        subhf = np.dot(subdcamat[i][:, c], gpt[c]) + np.dot(subdcamat[i][:, b], gpt[b])
+        # scf = (dca[i][:, 0].sum() - dca[i][:, 1].sum()) / hf[:, 0].sum()
+        scf = (subdca[i][:, 0].sum() - subdca[i][:, 1].sum()) / subhf[:, 0].sum()
         cf *= scf
         bf *= scf
         hf *= scf
