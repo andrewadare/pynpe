@@ -15,7 +15,7 @@ from refold import dca_refold, ept_refold
 
 # np.set_printoptions(precision=3)
 bfrac = 0.007
-dcares = 0.01
+dcares = np.full(6, 0.01)
 # Create text files for matrix creation (project_and_save() is idempotent).
 ui.project_and_save(dcares)
 
@@ -30,12 +30,12 @@ dca_ideal = [ui.dcamat_proj(i, bfrac, axis=1) for i in range(6)]
 dca = [ui.dcadata_sim(i, bfrac) for i in range(6)]
 
 if True:
-    cfold, bfold, hfold, _ = dca_refold(gpt, dcamat, dca)
+    cfold, bfold, hfold, _, rf = dca_refold(gpt, dcamat, dca)
     pf.plotdca_fold(dca, cfold, bfold, hfold, 'pdfs/dca-fold.pdf')
 
 if True:
     cfe, bfe, hfe, bfrac_ept = ept_refold(gpt, eptmat)
-    cfold, bfold, hfold, bfrac_dca = dca_refold(gpt, dcamat, dca)
+    cfold, bfold, hfold, bfrac_dca, rf = dca_refold(gpt, dcamat, dca)
     pf.plotbfrac(bfrac_ept,
                  bfrac_dca,
                  fonll=None,
