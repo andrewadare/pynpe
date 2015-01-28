@@ -47,6 +47,18 @@ maskranges_mb = np.array([
     [0.15, 0.15, -0.02, -0.01, -0.01, -0.01],
     [9999, 9999, +0.02, +0.01, +0.01, +0.01],
     [9999, 9999, +0.15, +0.15, +0.15, +0.15]])
+# Right side only
+# maskranges_mb = np.array([
+#     [0.04, 0.03,  9999,  9999,  9999,  9999],
+#     [0.15, 0.15,  9999,  9999,  9999,  9999],
+#     [9999, 9999, +0.02, +0.01, +0.01, +0.01],
+#     [9999, 9999, +0.15, +0.15, +0.15, +0.15]])
+# Left side only (where applicable)
+# maskranges_mb = np.array([
+#     [0.04, 0.03, -0.15, -0.15, -0.15, -0.15],
+#     [0.15, 0.15, -0.02, -0.01, -0.01, -0.01],
+#     [9999, 9999,  9999,  9999,  9999,  9999],
+#     [9999, 9999,  9999,  9999,  9999,  9999]])
 
 maskranges_pp = np.array([
     [-0.15, -0.15, -0.15, -0.15, -0.15, -0.15],
@@ -116,6 +128,23 @@ def dca_subset(dcalist, dcamatlist, dtype):
         subdca.append(a)
         subdcamat.append(m)
     return subdca, subdcamat
+
+def val_subset(vallist, dtype):
+    '''
+    Create subarrays excluding masked data. Similar to dca_subset() above,
+    but for any 1D array (ratios, probabilities, ect). Assumed to be the
+    same x binning as dca.
+    '''
+    subval = []
+    for i, vfull in enumerate(vallist):
+        r = maskranges_mb if dtype == 'AuAu200MB' else maskranges_pp
+        a = []
+        for j, x in enumerate(dcabins[:-1]):
+            if (x > r[0, i] and x < r[1, i]) or (x > r[2, i] and x < r[3, i]):
+                # a = np.vstack([a, vfull[j]])
+                a.append(vfull[j])
+        subval.append(a)
+    return subval
 
 
 def project_and_save(dcares=np.full(len(dcaeptbins), 0.007),
@@ -419,4 +448,4 @@ if __name__ == '__main__':
     np.set_printoptions(precision=3)
 
     # Generate csv files and plots with current settings
-    project_and_save()
+    project_and_save(draw=True)
